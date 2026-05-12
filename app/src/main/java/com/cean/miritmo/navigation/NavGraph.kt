@@ -1,0 +1,129 @@
+package com.cean.miritmo.navigation
+
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.compose.currentBackStackEntryAsState
+import com.cean.miritmo.components.BottomNavBar
+import com.cean.miritmo.ui.auth.LoginScreen
+import com.cean.miritmo.ui.auth.RegisterScreen
+import com.cean.miritmo.ui.home.HomeScreen
+import com.cean.miritmo.ui.profile.ProfileScreen
+import com.cean.miritmo.viewmodel.AppViewModelFactory
+import com.cean.miritmo.viewmodel.AuthViewModel
+import com.cean.miritmo.viewmodel.HabitsViewModel
+
+@Composable
+fun AppNavGraph(
+    navController: NavHostController = rememberNavController(),
+    factory: AppViewModelFactory
+) {
+    val authViewModel: AuthViewModel = viewModel(factory = factory)
+    val habitsViewModel: HabitsViewModel = viewModel(factory = factory)
+
+    val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
+    val showBottomBar = currentRoute in listOf(
+        Screen.Home.route,
+        Screen.Habits.route,
+        Screen.Progress.route,
+        Screen.Profile.route
+    )
+
+    Scaffold(
+        bottomBar = {
+            if (showBottomBar) {
+                BottomNavBar(navController)
+            }
+        }
+    ) { padding ->
+        NavHost(
+            navController = navController,
+            startDestination = if (authViewModel.isUserAuthenticated) Screen.Home.route else Screen.Login.route,
+            modifier = Modifier.padding(padding)
+        ) {
+            composable(Screen.Login.route) {
+                LoginScreen(navController, authViewModel)
+            }
+            composable(Screen.Register.route) {
+                RegisterScreen(navController, authViewModel)
+            }
+            composable(Screen.Home.route) {
+                val currentUser by authViewModel.currentUser.collectAsState()
+                
+                HomeScreen(
+                    viewModel = habitsViewModel,
+                    photoUrl = currentUser?.photoUrl,
+                    onLogout = {
+                        authViewModel.logout()
+                        navController.navigate(Screen.Login.route) {
+                            popUpTo(Screen.Home.route) { inclusive = true }
+                        }
+                    },
+                    onAddHabit = {
+                        navController.navigate(Screen.AddHabit.route)
+                    },
+                    onNavigateToHabit = { habitId ->
+                        navController.navigate(Screen.ManageHabit.createRoute(habitId))
+                    },
+                    onNavigateToProfile = {
+                        navController.navigate(Screen.Profile.route) {
+                            popUpTo(Screen.Home.route) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    }
+                )
+            }
+            composable(Screen.AddHabit.route) {
+                com.cean.miritmo.ui.habits.AddHabitScreen(
+                    navController = navController,
+                    viewModel = habitsViewModel
+                )
+            }
+            composable(Screen.Habits.route) {
+                com.cean.miritmo.ui.habits.HabitsScreen(
+                    navController = navController,
+                    viewModel = habitsViewModel
+                )
+            }
+            composable(Screen.ManageHabit.route) { backStackEntry ->
+                val habitId = backStackEntry.arguments?.getString("habitId") ?: ""
+                com.cean.miritmo.ui.habits.EditHabitScreen(
+                    navController = navController,
+                    viewModel = habitsViewModel,
+                    habitId = habitId
+                )
+            }
+            composable(Screen.Progress.route) {
+                PlaceholderScreen("Pantalla de Progreso (En desarrollo)")
+            }
+            composable(Screen.Profile.route) {
+                ProfileScreen(
+                    navController = navController,
+                    authViewModel = authViewModel
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun PlaceholderScreen(title: String) {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Text(text = title)
+    }
+}
