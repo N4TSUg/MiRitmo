@@ -1,21 +1,26 @@
 package com.cean.miritmo.ui.auth
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.MonitorHeart
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import com.cean.miritmo.components.CustomTextField
-import com.cean.miritmo.components.PasswordTextField
+import com.cean.miritmo.components.AuthPasswordTextField
+import com.cean.miritmo.components.AuthTextField
 import com.cean.miritmo.navigation.Screen
 import com.cean.miritmo.viewmodel.AuthState
 import com.cean.miritmo.viewmodel.AuthViewModel
@@ -40,61 +45,80 @@ fun LoginScreen(navController: NavController, viewModel: AuthViewModel) {
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        // Gradient Header
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(300.dp)
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
-                            MaterialTheme.colorScheme.background
-                        )
-                    )
-                )
-        )
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(24.dp),
-            verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                text = "Mi Ritmo",
-                style = MaterialTheme.typography.displayLarge.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.onBackground
-            )
-            Text(
-                text = "Tu mejor versión empieza hoy",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = 48.dp)
-            )
+            Spacer(modifier = Modifier.height(48.dp))
 
+            // Logo and Header
+            Column(
+                horizontalAlignment = Alignment.Start,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(64.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF3B82F6)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.MonitorHeart,
+                        contentDescription = "Logo",
+                        tint = Color.White,
+                        modifier = Modifier.size(32.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "MiRitmo",
+                    style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.ExtraBold),
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Encuentra tu cadencia hoy.",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Spacer(modifier = Modifier.height(48.dp))
+
+            // Form Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(24.dp),
+                shape = RoundedCornerShape(32.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(modifier = Modifier.padding(24.dp)) {
-                    CustomTextField(
+                    AuthTextField(
                         value = email,
                         onValueChange = { email = it },
-                        label = "Correo electrónico"
+                        label = "Correo electrónico",
+                        placeholder = "nombre@ejemplo.com",
+                        trailingIcon = {
+                            Icon(
+                                imageVector = Icons.Filled.Email,
+                                contentDescription = "Email",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                            )
+                        }
                     )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    PasswordTextField(
+                    Spacer(modifier = Modifier.height(24.dp))
+                    AuthPasswordTextField(
                         value = password,
                         onValueChange = { password = it },
                         label = "Contraseña",
+                        placeholder = "••••••••",
                         passwordVisible = passwordVisible,
                         onVisibilityToggle = { passwordVisible = !passwordVisible }
                     )
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(32.dp))
 
                     if (authState is AuthState.Loading) {
                         Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -106,16 +130,10 @@ fun LoginScreen(navController: NavController, viewModel: AuthViewModel) {
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(56.dp),
-                            shape = RoundedCornerShape(16.dp)
+                            shape = RoundedCornerShape(28.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6))
                         ) {
-                            Text("Ingresar", fontWeight = FontWeight.Bold)
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        TextButton(
-                            onClick = { navController.navigate(Screen.Register.route) },
-                            modifier = Modifier.align(Alignment.CenterHorizontally)
-                        ) {
-                            Text("¿No tienes cuenta? Regístrate")
+                            Text("Iniciar Sesión ➔", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                         }
                     }
 
@@ -128,7 +146,31 @@ fun LoginScreen(navController: NavController, viewModel: AuthViewModel) {
                             modifier = Modifier.align(Alignment.CenterHorizontally)
                         )
                     }
+                    
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Divider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                 }
+            }
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            // Footer
+            Row(
+                modifier = Modifier.padding(bottom = 32.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "¿No tienes una cuenta? ",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 14.sp
+                )
+                Text(
+                    text = "Crear cuenta nueva",
+                    color = Color(0xFF0F52BA),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.clickable { navController.navigate(Screen.Register.route) }
+                )
             }
         }
     }

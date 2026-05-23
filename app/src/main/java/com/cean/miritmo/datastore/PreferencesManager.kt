@@ -16,6 +16,7 @@ class PreferencesManager(private val context: Context) {
     
     companion object {
         val IS_DARK_MODE = booleanPreferencesKey("is_dark_mode")
+        val NOTIFICATIONS_ENABLED = booleanPreferencesKey("notifications_enabled")
         val USER_ID = stringPreferencesKey("user_id")
     }
 
@@ -26,6 +27,16 @@ class PreferencesManager(private val context: Context) {
     suspend fun setDarkMode(isDark: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[IS_DARK_MODE] = isDark
+        }
+    }
+
+    val isNotificationsEnabledFlow: Flow<Boolean?> = context.dataStore.data.map { preferences ->
+        preferences[NOTIFICATIONS_ENABLED]
+    }
+
+    suspend fun setNotificationsEnabled(isEnabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[NOTIFICATIONS_ENABLED] = isEnabled
         }
     }
 

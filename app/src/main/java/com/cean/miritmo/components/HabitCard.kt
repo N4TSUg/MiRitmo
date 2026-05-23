@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -23,12 +24,18 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.cean.miritmo.model.Habit
 
+import com.cean.miritmo.viewmodel.TimerState
+
 @Composable
 fun HabitCard(
     habit: Habit,
     isCompleted: Boolean,
+    currentCompletions: Int = 0,
+    totalTargets: Int = 1,
     onToggleCompletion: () -> Unit,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onPlayClick: (() -> Unit)? = null,
+    timerState: TimerState? = null
 ) {
     // Definir colores basados en la "categoría" (simulado para el diseño)
     val accentColor = MaterialTheme.colorScheme.secondary
@@ -92,10 +99,18 @@ fun HabitCard(
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "${habit.category.uppercase()} • ${habit.targetTime ?: habit.frequency}",
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp),
-                        color = accentColor
+                        text = if (totalTargets > 1) "${habit.category.uppercase()} • $currentCompletions de $totalTargets completados" else "${habit.category.uppercase()} • ${habit.getEffectiveTargetTimes().firstOrNull() ?: habit.frequency}",
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    if (habit.durationMinutes != null) {
+                        val displayMinutes = timerState?.let { it.secondsRemaining / 60 } ?: habit.durationMinutes
+                        Text(
+                            text = "$displayMinutes min",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
 
                 // Checkbox Circular Moderno
@@ -108,22 +123,40 @@ fun HabitCard(
                     label = "checkBorderColor"
                 )
 
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(CircleShape)
-                        .background(checkBgColor)
-                        .border(2.dp, checkBorderColor, CircleShape)
-                        .clickable { onToggleCompletion() },
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (isCompleted) {
+                if (habit.durationMinutes != null && !isCompleted) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary)
+                            .clickable { onPlayClick?.invoke() },
+                        contentAlignment = Alignment.Center
+                    ) {
                         Icon(
-                            imageVector = Icons.Filled.Check,
-                            contentDescription = "Completado",
+                            imageVector = Icons.Filled.PlayArrow,
+                            contentDescription = "Iniciar",
                             tint = Color.White,
                             modifier = Modifier.size(20.dp)
                         )
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(checkBgColor)
+                            .border(2.dp, checkBorderColor, CircleShape)
+                            .clickable { onToggleCompletion() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (isCompleted) {
+                            Icon(
+                                imageVector = Icons.Filled.Check,
+                                contentDescription = "Completado",
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                     }
                 }
             }

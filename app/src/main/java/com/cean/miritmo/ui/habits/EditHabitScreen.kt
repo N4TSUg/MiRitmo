@@ -16,6 +16,7 @@ import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Face
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -51,23 +52,17 @@ fun EditHabitScreen(
     var selectedCategory by remember { mutableStateOf(habit.category.replaceFirstChar { it.uppercase() }) }
     var selectedDays by remember { mutableStateOf(habit.frequency.split(", ").toSet()) }
     
-    // Parse time
-    var hour by remember { mutableStateOf(7) }
-    var minute by remember { mutableStateOf(30) }
-    var isAm by remember { mutableStateOf(true) }
-
-    LaunchedEffect(habit) {
-        val timeStr = habit.targetTime ?: "07:30 AM"
+    // One-time habit state
+    var isOneTime by remember { mutableStateOf(habit.oneTime) }
+    var oneTimeDateMillis by remember { mutableStateOf<Long?>(
         try {
-            val parts = timeStr.split(" ")
-            val hm = parts[0].split(":")
-            hour = hm[0].toInt()
-            minute = hm[1].toInt()
-            isAm = parts[1] == "AM"
-        } catch (e: Exception) {
-            // Ignorar y usar valores por defecto si falla el parseo
-        }
-    }
+            if (habit.oneTimeDate != null) java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).parse(habit.oneTimeDate)?.time else System.currentTimeMillis()
+        } catch (e: Exception) { System.currentTimeMillis() }
+    ) }
+    var showDatePicker by remember { mutableStateOf(false) }
+
+    var targetTimes by remember { mutableStateOf(habit.getEffectiveTargetTimes()) }
+    var durationMinutes by remember { mutableStateOf(habit.durationMinutes ?: 0) }
 
     var showDeleteDialog by remember { mutableStateOf(false) }
     var isSaving by remember { mutableStateOf(false) }
@@ -140,15 +135,36 @@ fun EditHabitScreen(
                     onClick = {
                         if (isSaving) return@Button
                         
-                        val frequency = selectedDays.joinToString(", ")
-                        val timeStr = String.format("%02d:%02d %s", hour, minute, if (isAm) "AM" else "PM")
+                        val frequency = if (isOneTime) "Una vez" else selectedDays.joinToString(", ")
                         val finalName = if (habitName.isNotBlank()) habitName else selectedCategory
+                        
+                        val repeatDaysInt = if (isOneTime) emptyList() else selectedDays.mapNotNull { day ->
+                            when (day) {
+                                "L" -> 1
+                                "M" -> 2
+                                "X" -> 3
+                                "J" -> 4
+                                "V" -> 5
+                                "S" -> 6
+                                "D" -> 7
+                                else -> null
+                            }
+                        }
+                        
+                        val formattedDate = if (isOneTime && oneTimeDateMillis != null) {
+                            java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date(oneTimeDateMillis!!))
+                        } else null
                         
                         val updatedHabit = habit.copy(
                             name = finalName,
                             category = selectedCategory.lowercase(),
                             frequency = frequency,
-                            targetTime = timeStr
+                            repeatDays = repeatDaysInt,
+                            targetTime = if (targetTimes.isNotEmpty()) targetTimes[0] else null,
+                            targetTimes = targetTimes,
+                            durationMinutes = if (durationMinutes > 0) durationMinutes else null,
+                            oneTime = isOneTime,
+                            oneTimeDate = formattedDate
                         )
 
                         isSaving = true
@@ -314,18 +330,62 @@ fun EditHabitScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Repetición semanal",
+                            text = "Frecuencia",
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.onSurface
                         )
-                        Text(
-                            text = if (selectedDays.size == 7) "Todos los días" else "${selectedDays.size} días",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "Una vez",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Switch(
+                                checked = isOneTime,
+                                onCheckedChange = { isOneTime = it },
+                                modifier = Modifier.padding(start = 8.dp)
+                            )
+                        }
                     }
                     Spacer(modifier = Modifier.height(12.dp))
-                    Card(
+                    
+                    if (isOneTime) {
+                        val dateFormat = java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault())
+                        val dateText = if (oneTimeDateMillis != null) dateFormat.format(java.util.Date(oneTimeDateMillis!!)) else "Seleccionar fecha"
+                        
+                        Card(
+                            modifier = Modifier.fillMaxWidth().clickable { showDatePicker = true },
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Filled.DateRange, contentDescription = "Fecha", tint = MaterialTheme.colorScheme.primary)
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Text(dateText, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
+                            }
+                        }
+                    } else {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Repetición semanal",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = if (selectedDays.size == 7) "Todos los días" else "${selectedDays.size} días",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Card(
                         shape = RoundedCornerShape(32.dp),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
                         elevation = CardDefaults.cardElevation(0.dp)
@@ -361,15 +421,26 @@ fun EditHabitScreen(
                                 }
                             }
                         }
+                            }
+                        }
                     }
                 }
-            }
+
+
 
             // Recordatorio
             item {
+                com.cean.miritmo.components.TimeSelectorUI(
+                    targetTimes = targetTimes,
+                    onTargetTimesChanged = { targetTimes = it }
+                )
+            }
+
+            // Duracion
+            item {
                 Column {
                     Text(
-                        text = "Recordatorio",
+                        text = "Duración (opcional)",
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.onSurface
                     )
@@ -387,73 +458,40 @@ fun EditHabitScreen(
                             horizontalArrangement = Arrangement.Center,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // Hour
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                IconButton(onClick = { hour = if (hour == 12) 1 else hour + 1 }) {
+                                IconButton(onClick = { durationMinutes += 5 }) {
                                     Icon(Icons.Filled.KeyboardArrowUp, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                                 Text(
-                                    text = String.format("%02d", hour),
-                                    style = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.primary
+                                    text = if (durationMinutes > 0) "$durationMinutes min" else "Sin tiempo",
+                                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                                    color = if (durationMinutes > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                                 )
-                                IconButton(onClick = { hour = if (hour == 1) 12 else hour - 1 }) {
+                                IconButton(onClick = { if (durationMinutes >= 5) durationMinutes -= 5 }) {
                                     Icon(Icons.Filled.KeyboardArrowDown, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                            }
-
-                            Text(
-                                text = ":",
-                                style = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(horizontal = 16.dp)
-                            )
-
-                            // Minute
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                IconButton(onClick = { minute = if (minute >= 55) 0 else minute + 5 }) {
-                                    Icon(Icons.Filled.KeyboardArrowUp, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                                Text(
-                                    text = String.format("%02d", minute),
-                                    style = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                                IconButton(onClick = { minute = if (minute <= 0) 55 else minute - 5 }) {
-                                    Icon(Icons.Filled.KeyboardArrowDown, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.width(24.dp))
-
-                            // AM / PM
-                            Column(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(16.dp))
-                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(16.dp))
-                                        .background(if (isAm) MaterialTheme.colorScheme.primary else Color.Transparent)
-                                        .clickable { isAm = true }
-                                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                                ) {
-                                    Text("AM", color = if (isAm) Color.White else MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
-                                }
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(16.dp))
-                                        .background(if (!isAm) MaterialTheme.colorScheme.primary else Color.Transparent)
-                                        .clickable { isAm = false }
-                                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                                ) {
-                                    Text("PM", color = if (!isAm) Color.White else MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
                     }
                 }
+            }
+        }
+
+        if (showDatePicker) {
+            val datePickerState = rememberDatePickerState(initialSelectedDateMillis = oneTimeDateMillis ?: System.currentTimeMillis())
+            DatePickerDialog(
+                onDismissRequest = { showDatePicker = false },
+                confirmButton = {
+                    TextButton(onClick = {
+                        oneTimeDateMillis = datePickerState.selectedDateMillis
+                        showDatePicker = false
+                    }) { Text("Aceptar") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDatePicker = false }) { Text("Cancelar") }
+                }
+            ) {
+                DatePicker(state = datePickerState)
             }
         }
     }

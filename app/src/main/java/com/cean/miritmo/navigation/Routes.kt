@@ -11,4 +11,7 @@ sealed class Screen(val route: String) {
     }
     object Progress : Screen("progress")
     object Profile : Screen("profile")
+    object Timer : Screen("timer/{habitId}") {
+        fun createRoute(habitId: String) = "timer/$habitId"
+    }
 }

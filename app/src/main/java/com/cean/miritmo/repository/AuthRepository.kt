@@ -4,6 +4,7 @@ import com.cean.miritmo.datastore.PreferencesManager
 import com.cean.miritmo.firebase.AuthManager
 import com.cean.miritmo.firebase.FirestoreManager
 import com.cean.miritmo.model.User
+import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.tasks.await
 import android.net.Uri
 import java.util.UUID
@@ -15,6 +16,17 @@ class AuthRepository(
 ) {
     private val auth = authManager.auth
     private val db = firestoreManager.db
+
+    val isDarkModeFlow = preferencesManager.isDarkModeFlow
+    val isNotificationsEnabledFlow = preferencesManager.isNotificationsEnabledFlow
+
+    suspend fun setDarkMode(isDark: Boolean) {
+        preferencesManager.setDarkMode(isDark)
+    }
+
+    suspend fun setNotificationsEnabled(isEnabled: Boolean) {
+        preferencesManager.setNotificationsEnabled(isEnabled)
+    }
 
     suspend fun login(email: String, password: String): Result<User> {
         return try {
@@ -109,7 +121,7 @@ class AuthRepository(
         return try {
             val userId = getCurrentUserId() ?: throw Exception("No user logged in")
             db.collection(FirestoreManager.USERS_COLLECTION).document(userId)
-                .update("photoUrl", avatarId).await()
+                .set(mapOf("photoUrl" to avatarId), SetOptions.merge()).await()
                 
             Result.success(avatarId)
         } catch (e: Exception) {

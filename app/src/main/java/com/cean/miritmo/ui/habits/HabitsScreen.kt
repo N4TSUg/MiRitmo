@@ -28,6 +28,7 @@ fun HabitsScreen(
     viewModel: HabitsViewModel
 ) {
     val habits by viewModel.habits.collectAsState()
+    val timers by viewModel.timers.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
 
     Scaffold(
@@ -78,14 +79,21 @@ fun HabitsScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(start = 24.dp, end = 24.dp, bottom = 100.dp)
                 ) {
+                    val todayFormat = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())
+
                     items(habits) { habit ->
+                        val isCompleted = habit.lastCompletedDate == todayFormat
                         HabitCard(
                             habit = habit,
-                            isCompleted = false, // En esta vista no mostramos progreso diario interactivo, solo la lista
-                            onToggleCompletion = { /* Desactivado en la vista de lista total */ },
+                            isCompleted = isCompleted,
+                            onToggleCompletion = { viewModel.toggleHabitCompletion(habit.id, isCompleted, todayFormat) },
                             onClick = {
                                 navController.navigate(Screen.ManageHabit.createRoute(habit.id))
-                            }
+                            },
+                            onPlayClick = {
+                                navController.navigate(Screen.Timer.createRoute(habit.id))
+                            },
+                            timerState = timers[habit.id]
                         )
                     }
                 }

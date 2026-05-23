@@ -32,6 +32,11 @@ import coil.compose.AsyncImage
 import com.cean.miritmo.components.PasswordTextField
 import com.cean.miritmo.navigation.Screen
 import com.cean.miritmo.viewmodel.AuthViewModel
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.launch
+import com.cean.miritmo.util.CloudinaryHelper
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -54,12 +59,35 @@ fun ProfileScreen(
     
     var isSaving by remember { mutableStateOf(false) }
 
-    // Mock settings state
-    var notificationsEnabled by remember { mutableStateOf(true) }
-    var darkModeEnabled by remember { mutableStateOf(false) } // Visual placeholder
+    val notificationsEnabled by authViewModel.isNotificationsEnabled.collectAsState()
+    val darkModeEnabled by authViewModel.isDarkMode.collectAsState()
 
     LaunchedEffect(Unit) {
         authViewModel.loadCurrentUser()
+    }
+
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) {
+            isSaving = true
+            coroutineScope.launch {
+                val secureUrl = CloudinaryHelper.uploadImage(context, uri)
+                if (secureUrl != null) {
+                    authViewModel.updateProfilePicture(secureUrl) { success ->
+                        isSaving = false
+                        showAvatarSelectionDialog = false
+                    }
+                } else {
+                    isSaving = false
+                    showAvatarSelectionDialog = false
+                    // Ideally show error
+                }
+            }
+        }
     }
 
     val predefinedAvatars = listOf(
@@ -102,37 +130,26 @@ fun ProfileScreen(
                         }
                     }
                     Divider()
-                    Text("O ingresa la URL de una imagen:", style = MaterialTheme.typography.bodyMedium)
-                    OutlinedTextField(
-                        value = photoUrlInput,
-                        onValueChange = { photoUrlInput = it },
-                        label = { Text("URL de la imagen") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        if (photoUrlInput.isNotBlank() && !isSaving) {
-                            isSaving = true
-                            authViewModel.updateProfilePicture(photoUrlInput) { success ->
-                                isSaving = false
-                                if (success) {
-                                    showAvatarSelectionDialog = false
-                                }
-                            }
-                        }
+                    Text("O sube una imagen:", style = MaterialTheme.typography.bodyMedium)
+                    Button(
+                        onClick = { 
+                            galleryLauncher.launch(
+                                androidx.activity.result.PickVisualMediaRequest(
+                                    ActivityResultContracts.PickVisualMedia.ImageOnly
+                                )
+                            ) 
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isSaving
+                    ) {
+                        Text("Subir desde galería")
                     }
-                ) {
-                    if (isSaving) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                    else Text("Guardar URL")
                 }
             },
+            confirmButton = {},
             dismissButton = {
                 TextButton(onClick = { if (!isSaving) showAvatarSelectionDialog = false }) {
-                    Text("Cancelar")
+                    Text("Cerrar")
                 }
             }
         )
@@ -411,14 +428,14 @@ fun ProfileScreen(
                             icon = Icons.Filled.Notifications,
                             title = "Notificaciones",
                             checked = notificationsEnabled,
-                            onCheckedChange = { notificationsEnabled = it }
+                            onCheckedChange = { authViewModel.setNotificationsEnabled(it) }
                         )
                         Divider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.surfaceVariant)
                         SettingsRowWithSwitch(
                             icon = Icons.Filled.Settings,
                             title = "Modo Oscuro",
                             checked = darkModeEnabled,
-                            onCheckedChange = { darkModeEnabled = it }
+                            onCheckedChange = { authViewModel.setDarkMode(it) }
                         )
                     }
                 }
@@ -438,8 +455,8 @@ fun ProfileScreen(
                         .fillMaxWidth()
                         .height(56.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFFEE2E2), // Rojo muy suave
-                        contentColor = Color(0xFFEF4444) // Rojo vibrante
+                        containerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.15f),
+                        contentColor = MaterialTheme.colorScheme.error
                     ),
                     shape = RoundedCornerShape(16.dp)
                 ) {

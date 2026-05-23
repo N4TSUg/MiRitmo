@@ -1,6 +1,7 @@
 package com.cean.miritmo.ui.home
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -33,25 +34,45 @@ import java.util.Locale
 fun HomeScreen(
     viewModel: HabitsViewModel,
     photoUrl: String?,
-    onLogout: () -> Unit,
     onAddHabit: () -> Unit,
     onNavigateToHabit: (String) -> Unit,
+    onNavigateToTimer: (String) -> Unit,
     onNavigateToProfile: () -> Unit
 ) {
     val habits by viewModel.habits.collectAsState()
-    val records by viewModel.records.collectAsState()
+    val timers by viewModel.timers.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     
-    val todayDate = Date()
-    val todayFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(todayDate)
+    var selectedDateMillis by remember { mutableStateOf(System.currentTimeMillis()) }
+    val selectedDateFormat = remember(selectedDateMillis) {
+        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date(selectedDateMillis))
+    }
+
+    val validHabitsForToday = remember(habits, selectedDateMillis) {
+        habits.filter { habit ->
+            if (habit.oneTime) {
+                habit.oneTimeDate == selectedDateFormat
+            } else {
+                val calendar = java.util.Calendar.getInstance().apply { timeInMillis = selectedDateMillis }
+                val calendarDay = calendar.get(java.util.Calendar.DAY_OF_WEEK)
+                val appDay = if (calendarDay == java.util.Calendar.SUNDAY) 7 else calendarDay - 1
+                habit.repeatDays.isEmpty() || habit.repeatDays.contains(appDay)
+            }
+        }
+    }
 
     // Calculo del progreso diario
-    val completedToday = habits.count { habit -> 
-        records.any { it.habitId == habit.id && it.date == todayFormat && it.isCompleted } 
+    var totalTodayTargets = 0
+    var completedTodayTargets = 0
+    validHabitsForToday.forEach { habit ->
+        val targets = maxOf(1, habit.getEffectiveTargetTimes().size)
+        totalTodayTargets += targets
+        val completions = habit.completionsByDate[selectedDateFormat] ?: 0
+        completedTodayTargets += minOf(completions, targets)
     }
-    val totalToday = habits.size
-    val progressPercent = if (totalToday > 0) completedToday.toFloat() / totalToday.toFloat() else 0f
-    val missingHabits = totalToday - completedToday
+
+    val progressPercent = if (totalTodayTargets > 0) completedTodayTargets.toFloat() / totalTodayTargets.toFloat() else 0f
+    val missingHabits = totalTodayTargets - completedTodayTargets
 
     LaunchedEffect(Unit) {
         viewModel.loadData()
@@ -98,14 +119,6 @@ fun HomeScreen(
                         style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
                         color = MaterialTheme.colorScheme.primary
                     )
-
-                    IconButton(onClick = onLogout) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ExitToApp,
-                            contentDescription = "Cerrar Sesión",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
                 }
             }
 
@@ -125,31 +138,36 @@ fun HomeScreen(
                             .padding(horizontal = 16.dp, vertical = 20.dp),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        val currentDayNum = remember { java.text.SimpleDateFormat("d", java.util.Locale.getDefault()).format(java.util.Date()) }
                         val weekDays = remember {
                             val tempCal = java.util.Calendar.getInstance()
                             // Set to the current week's Monday
                             tempCal.firstDayOfWeek = java.util.Calendar.MONDAY
                             tempCal.set(java.util.Calendar.DAY_OF_WEEK, java.util.Calendar.MONDAY)
+                            tempCal.set(java.util.Calendar.HOUR_OF_DAY, 0)
+                            tempCal.set(java.util.Calendar.MINUTE, 0)
+                            tempCal.set(java.util.Calendar.SECOND, 0)
+                            tempCal.set(java.util.Calendar.MILLISECOND, 0)
                             
-                            val daysList = mutableListOf<Pair<String, String>>()
-                            val dayFormat = java.text.SimpleDateFormat("EEE", java.util.Locale("es", "ES"))
-                            val numFormat = java.text.SimpleDateFormat("d", java.util.Locale.getDefault())
-                            
-                            for (i in 0..5) { // Mostramos 6 días (LUN a SAB) para igualar el ancho del mockup
-                                val dayName = dayFormat.format(tempCal.time).uppercase(java.util.Locale("es", "ES")).replace(".", "").take(3)
-                                val dayNum = numFormat.format(tempCal.time)
-                                daysList.add(dayName to dayNum)
+                            val daysList = mutableListOf<java.util.Calendar>()
+                            for (i in 0..6) { // Mostramos 7 días (LUN a DOM)
+                                daysList.add(tempCal.clone() as java.util.Calendar)
                                 tempCal.add(java.util.Calendar.DAY_OF_MONTH, 1)
                             }
                             daysList
                         }
 
-                        weekDays.forEach { pair ->
-                            val isSelected = pair.second == currentDayNum
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        val dayFormat = remember { java.text.SimpleDateFormat("EEE", java.util.Locale("es", "ES")) }
+                        val numFormat = remember { java.text.SimpleDateFormat("d", java.util.Locale.getDefault()) }
+                        val fullFormat = remember { java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()) }
+
+                        weekDays.forEach { cal ->
+                            val isSelected = fullFormat.format(cal.time) == fullFormat.format(Date(selectedDateMillis))
+                            val dayName = dayFormat.format(cal.time).uppercase(java.util.Locale("es", "ES")).replace(".", "").take(3)
+                            val dayNum = numFormat.format(cal.time)
+
+                            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { selectedDateMillis = cal.timeInMillis }) {
                                 Text(
-                                    text = pair.first,
+                                    text = dayName,
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -163,7 +181,7 @@ fun HomeScreen(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
-                                        text = pair.second,
+                                        text = dayNum,
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 16.sp,
                                         color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface
@@ -239,16 +257,25 @@ fun HomeScreen(
                 }
             } else {
                 // Habit List
-                items(habits) { habit ->
-                    val isCompleted = records.any { it.habitId == habit.id && it.date == todayFormat && it.isCompleted }
+                items(validHabitsForToday) { habit ->
+                    val targets = maxOf(1, habit.getEffectiveTargetTimes().size)
+                    val completions = habit.completionsByDate[selectedDateFormat] ?: 0
+                    val isCompleted = completions >= targets
+                    
                     Box(modifier = Modifier.padding(horizontal = 24.dp).padding(bottom = 16.dp)) {
                         HabitCard(
                             habit = habit,
                             isCompleted = isCompleted,
+                            currentCompletions = completions,
+                            totalTargets = targets,
                             onToggleCompletion = {
-                                viewModel.toggleHabitCompletion(habit.id, isCompleted)
+                                viewModel.toggleHabitCompletion(habit.id, isCompleted, selectedDateFormat)
                             },
-                            onClick = { onNavigateToHabit(habit.id) }
+                            onClick = { onNavigateToHabit(habit.id) },
+                            onPlayClick = {
+                                onNavigateToTimer(habit.id)
+                            },
+                            timerState = timers[habit.id]
                         )
                     }
                 }

@@ -1,21 +1,25 @@
 package com.cean.miritmo.ui.auth
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import com.cean.miritmo.components.CustomTextField
-import com.cean.miritmo.components.PasswordTextField
+import com.cean.miritmo.components.AuthPasswordTextField
+import com.cean.miritmo.components.AuthTextField
 import com.cean.miritmo.navigation.Screen
 import com.cean.miritmo.viewmodel.AuthState
 import com.cean.miritmo.viewmodel.AuthViewModel
@@ -44,138 +48,157 @@ fun RegisterScreen(navController: NavController, viewModel: AuthViewModel) {
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        // Gradient Header
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(250.dp)
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
-                            MaterialTheme.colorScheme.background
-                        )
-                    )
-                )
-        )
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(24.dp)
+                .padding(32.dp)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.Start
         ) {
+            Spacer(modifier = Modifier.height(32.dp))
+
             Text(
-                text = "Crear Cuenta",
-                style = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.onBackground
+                text = "Empieza tu ritmo",
+                style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.ExtraBold),
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.padding(bottom = 8.dp)
             )
+            
             Text(
-                text = "Únete y transforma tus hábitos",
+                text = "Únete a las personas que están transformando sus días a través de la constancia.",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = 32.dp, top = 8.dp)
+                modifier = Modifier.padding(bottom = 32.dp)
             )
 
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-            ) {
-                Column(modifier = Modifier.padding(24.dp)) {
-                    CustomTextField(
-                        value = name,
-                        onValueChange = { name = it },
-                        label = "Nombre de usuario"
+            AuthTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = "NOMBRE COMPLETO",
+                placeholder = "Ej. Alex Rivera",
+                trailingIcon = {
+                    Icon(
+                        imageVector = Icons.Filled.Person,
+                        contentDescription = "Nombre",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                     )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    CustomTextField(
-                        value = email,
-                        onValueChange = { email = it },
-                        label = "Correo electrónico"
+                }
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            AuthTextField(
+                value = email,
+                onValueChange = { email = it },
+                label = "CORREO ELECTRÓNICO",
+                placeholder = "tu@ejemplo.com",
+                trailingIcon = {
+                    Icon(
+                        imageVector = Icons.Filled.Email,
+                        contentDescription = "Email",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                     )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    PasswordTextField(
-                        value = password,
-                        onValueChange = { password = it },
-                        label = "Contraseña",
-                        passwordVisible = passwordVisible,
-                        onVisibilityToggle = { passwordVisible = !passwordVisible }
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    PasswordTextField(
-                        value = confirmPassword,
-                        onValueChange = { confirmPassword = it },
-                        label = "Confirmar contraseña",
-                        passwordVisible = passwordVisible,
-                        onVisibilityToggle = { passwordVisible = !passwordVisible }
-                    )
-                    Spacer(modifier = Modifier.height(24.dp))
+                }
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            AuthPasswordTextField(
+                value = password,
+                onValueChange = { password = it },
+                label = "CONTRASEÑA",
+                placeholder = "Mínimo 8 caracteres",
+                passwordVisible = passwordVisible,
+                onVisibilityToggle = { passwordVisible = !passwordVisible }
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            AuthPasswordTextField(
+                value = confirmPassword,
+                onValueChange = { confirmPassword = it },
+                label = "CONFIRMAR CONTRASEÑA",
+                placeholder = "Repite tu contraseña",
+                passwordVisible = passwordVisible,
+                onVisibilityToggle = { passwordVisible = !passwordVisible }
+            )
+            Spacer(modifier = Modifier.height(32.dp))
 
-                    if (authState is AuthState.Loading) {
-                        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator()
+            if (authState is AuthState.Loading) {
+                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            } else {
+                Button(
+                    onClick = { 
+                        if (name.isBlank() || email.isBlank() || password.isBlank() || confirmPassword.isBlank()) {
+                            showErrorEmptyFields = true
+                        } else if (password == confirmPassword) {
+                            showErrorEmptyFields = false
+                            viewModel.register(name, email, password) 
                         }
-                    } else {
-                        Button(
-                            onClick = { 
-                                if (name.isBlank() || email.isBlank() || password.isBlank() || confirmPassword.isBlank()) {
-                                    showErrorEmptyFields = true
-                                } else if (password == confirmPassword) {
-                                    showErrorEmptyFields = false
-                                    viewModel.register(name, email, password) 
-                                }
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(56.dp),
-                            shape = RoundedCornerShape(16.dp)
-                        ) {
-                            Text("Registrarse", fontWeight = FontWeight.Bold)
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        TextButton(
-                            onClick = { navController.popBackStack() },
-                            modifier = Modifier.align(Alignment.CenterHorizontally)
-                        ) {
-                            Text("¿Ya tienes cuenta? Inicia sesión")
-                        }
-                    }
-
-                    if (showErrorEmptyFields) {
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = "Es necesario completar todos los campos",
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.align(Alignment.CenterHorizontally)
-                        )
-                    }
-
-                    if (authState is AuthState.Error) {
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = (authState as AuthState.Error).message,
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.align(Alignment.CenterHorizontally)
-                        )
-                    }
-                    if (password.isNotEmpty() && confirmPassword.isNotEmpty() && password != confirmPassword) {
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = "Las contraseñas no coinciden",
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.align(Alignment.CenterHorizontally)
-                        )
-                    }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    shape = RoundedCornerShape(28.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6))
+                ) {
+                    Text("Siguiente ➔", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                 }
             }
-            Spacer(modifier = Modifier.height(32.dp))
+
+            if (showErrorEmptyFields) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "Es necesario completar todos los campos",
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                )
+            }
+
+            if (authState is AuthState.Error) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = (authState as AuthState.Error).message,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                )
+            }
+            
+            if (password.isNotEmpty() && confirmPassword.isNotEmpty() && password != confirmPassword) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "Las contraseñas no coinciden",
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                )
+            }
+
+            Spacer(modifier = Modifier.weight(1f, fill = false))
+            Spacer(modifier = Modifier.height(48.dp))
+
+            // Footer
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 32.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "¿Ya tienes una cuenta? ",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 14.sp
+                )
+                Text(
+                    text = "Inicia sesión",
+                    color = Color(0xFF0F52BA),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.clickable { navController.popBackStack() }
+                )
+            }
         }
     }
 }

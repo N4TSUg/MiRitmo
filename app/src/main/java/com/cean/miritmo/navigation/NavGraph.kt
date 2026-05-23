@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -32,6 +33,10 @@ fun AppNavGraph(
 ) {
     val authViewModel: AuthViewModel = viewModel(factory = factory)
     val habitsViewModel: HabitsViewModel = viewModel(factory = factory)
+
+    LaunchedEffect(Unit) {
+        authViewModel.loadCurrentUser()
+    }
 
     val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
     val showBottomBar = currentRoute in listOf(
@@ -65,17 +70,14 @@ fun AppNavGraph(
                 HomeScreen(
                     viewModel = habitsViewModel,
                     photoUrl = currentUser?.photoUrl,
-                    onLogout = {
-                        authViewModel.logout()
-                        navController.navigate(Screen.Login.route) {
-                            popUpTo(Screen.Home.route) { inclusive = true }
-                        }
-                    },
                     onAddHabit = {
                         navController.navigate(Screen.AddHabit.route)
                     },
                     onNavigateToHabit = { habitId ->
                         navController.navigate(Screen.ManageHabit.createRoute(habitId))
+                    },
+                    onNavigateToTimer = { habitId ->
+                        navController.navigate(Screen.Timer.createRoute(habitId))
                     },
                     onNavigateToProfile = {
                         navController.navigate(Screen.Profile.route) {
@@ -89,9 +91,11 @@ fun AppNavGraph(
                 )
             }
             composable(Screen.AddHabit.route) {
+                val currentUser by authViewModel.currentUser.collectAsState()
                 com.cean.miritmo.ui.habits.AddHabitScreen(
                     navController = navController,
-                    viewModel = habitsViewModel
+                    viewModel = habitsViewModel,
+                    photoUrl = currentUser?.photoUrl
                 )
             }
             composable(Screen.Habits.route) {
@@ -108,8 +112,21 @@ fun AppNavGraph(
                     habitId = habitId
                 )
             }
+            composable(Screen.Timer.route) { backStackEntry ->
+                val habitId = backStackEntry.arguments?.getString("habitId") ?: ""
+                com.cean.miritmo.ui.habits.HabitTimerScreen(
+                    navController = navController,
+                    viewModel = habitsViewModel,
+                    habitId = habitId
+                )
+            }
             composable(Screen.Progress.route) {
-                PlaceholderScreen("Pantalla de Progreso (En desarrollo)")
+                com.cean.miritmo.ui.progress.ProgressScreen(
+                    viewModel = habitsViewModel,
+                    onNavigateToTimer = { habitId ->
+                        navController.navigate(Screen.Timer.createRoute(habitId))
+                    }
+                )
             }
             composable(Screen.Profile.route) {
                 ProfileScreen(

@@ -7,6 +7,8 @@ import com.cean.miritmo.model.User
 import android.net.Uri
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
@@ -19,6 +21,26 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
 
     val isUserAuthenticated: Boolean
         get() = repository.getCurrentUserId() != null
+
+    val isDarkMode: StateFlow<Boolean> = repository.isDarkModeFlow
+        .map { it ?: false }
+        .stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5000), false)
+
+    val isNotificationsEnabled: StateFlow<Boolean> = repository.isNotificationsEnabledFlow
+        .map { it ?: true }
+        .stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5000), true)
+
+    fun setDarkMode(isDark: Boolean) {
+        viewModelScope.launch {
+            repository.setDarkMode(isDark)
+        }
+    }
+
+    fun setNotificationsEnabled(isEnabled: Boolean) {
+        viewModelScope.launch {
+            repository.setNotificationsEnabled(isEnabled)
+        }
+    }
 
     fun login(email: String, pass: String) {
         viewModelScope.launch {
