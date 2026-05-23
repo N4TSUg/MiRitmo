@@ -17,8 +17,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import java.util.Locale
 
 @Composable
@@ -34,7 +38,9 @@ fun TimeSelectorUI(
     var isAm by remember { mutableStateOf(true) }
 
     // Variables for interval
-    var intervalHours by remember { mutableStateOf(2) }
+    var intervalValue by remember { mutableStateOf("2") }
+    var intervalUnit by remember { mutableStateOf("horas") }
+    var isDropdownExpanded by remember { mutableStateOf(false) }
     var timesCount by remember { mutableStateOf(3) }
 
     Column {
@@ -236,11 +242,54 @@ fun TimeSelectorUI(
                     Spacer(modifier = Modifier.height(16.dp))
                     
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                        Text("Repetir cada (horas)", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Box {
+                            Row(
+                                modifier = Modifier
+                                    .clickable { isDropdownExpanded = true }
+                                    .padding(vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("Repetir cada ($intervalUnit)", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Icon(Icons.Filled.KeyboardArrowDown, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            DropdownMenu(
+                                expanded = isDropdownExpanded,
+                                onDismissRequest = { isDropdownExpanded = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("horas") },
+                                    onClick = { intervalUnit = "horas"; isDropdownExpanded = false }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("minutos") },
+                                    onClick = { intervalUnit = "minutos"; isDropdownExpanded = false }
+                                )
+                            }
+                        }
+                        
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(onClick = { if (intervalHours > 1) intervalHours-- }) { Icon(Icons.Filled.KeyboardArrowDown, null) }
-                            Text("$intervalHours", style = MaterialTheme.typography.titleLarge)
-                            IconButton(onClick = { if (intervalHours < 24) intervalHours++ }) { Icon(Icons.Filled.KeyboardArrowUp, null) }
+                            IconButton(onClick = { 
+                                val current = intervalValue.toIntOrNull() ?: 1
+                                if (current > 1) intervalValue = (current - 1).toString() 
+                            }) { Icon(Icons.Filled.KeyboardArrowDown, null) }
+                            
+                            BasicTextField(
+                                value = intervalValue,
+                                onValueChange = { newValue -> 
+                                    if (newValue.isEmpty() || newValue.all { it.isDigit() }) {
+                                        intervalValue = newValue
+                                    }
+                                },
+                                textStyle = MaterialTheme.typography.titleLarge.copy(textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurface),
+                                modifier = Modifier.width(40.dp),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                singleLine = true
+                            )
+                            
+                            IconButton(onClick = { 
+                                val current = intervalValue.toIntOrNull() ?: 0
+                                intervalValue = (current + 1).toString() 
+                            }) { Icon(Icons.Filled.KeyboardArrowUp, null) }
                         }
                     }
                     
@@ -262,11 +311,16 @@ fun TimeSelectorUI(
                             val timeFormat = java.text.SimpleDateFormat("hh:mm a", Locale.US)
                             val startStr = String.format(Locale.US, "%02d:%02d %s", hour, minute, if (isAm) "AM" else "PM")
                             val startDate = timeFormat.parse(startStr)
+                            val interval = intervalValue.toIntOrNull() ?: 1
                             if (startDate != null) {
                                 cal.time = startDate
                                 for (i in 0 until timesCount) {
                                     newTimes.add(timeFormat.format(cal.time))
-                                    cal.add(java.util.Calendar.HOUR_OF_DAY, intervalHours)
+                                    if (intervalUnit == "horas") {
+                                        cal.add(java.util.Calendar.HOUR_OF_DAY, interval)
+                                    } else {
+                                        cal.add(java.util.Calendar.MINUTE, interval)
+                                    }
                                 }
                                 onTargetTimesChanged(newTimes)
                             }
