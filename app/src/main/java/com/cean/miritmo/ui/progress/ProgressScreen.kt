@@ -68,7 +68,17 @@ fun ProgressScreen(
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
-            items(habits) { habit ->
+            val activeHabits = habits.filter { habit ->
+                if (habit.oneTime) {
+                    val targets = maxOf(1, habit.getEffectiveTargetTimes().size)
+                    val completions = habit.completionsByDate[habit.oneTimeDate ?: ""] ?: 0
+                    completions < targets
+                } else {
+                    true
+                }
+            }
+
+            items(activeHabits) { habit ->
                 val targets = maxOf(1, habit.getEffectiveTargetTimes().size)
                 val completions = habit.completionsByDate[todayFormat] ?: 0
                 val isCompleted = completions >= targets
@@ -86,7 +96,7 @@ fun ProgressScreen(
                 )
             }
             
-            if (habits.isEmpty()) {
+            if (activeHabits.isEmpty()) {
                 item {
                     Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
                         Text("No tienes hábitos creados.", color = MaterialTheme.colorScheme.onSurfaceVariant)

@@ -51,7 +51,8 @@ fun HomeScreen(
     val validHabitsForToday = remember(habits, selectedDateMillis) {
         habits.filter { habit ->
             if (habit.oneTime) {
-                habit.oneTimeDate == selectedDateFormat
+                val habitDate = habit.oneTimeDate ?: java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date(habit.createdAt))
+                habitDate == selectedDateFormat
             } else {
                 val calendar = java.util.Calendar.getInstance().apply { timeInMillis = selectedDateMillis }
                 val calendarDay = calendar.get(java.util.Calendar.DAY_OF_WEEK)

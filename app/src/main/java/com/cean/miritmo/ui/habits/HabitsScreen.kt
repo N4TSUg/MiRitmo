@@ -80,8 +80,18 @@ fun HabitsScreen(
                     contentPadding = PaddingValues(start = 24.dp, end = 24.dp, bottom = 100.dp)
                 ) {
                     val todayFormat = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())
+                    
+                    val activeHabits = habits.filter { habit ->
+                        if (habit.oneTime) {
+                            val targets = maxOf(1, habit.getEffectiveTargetTimes().size)
+                            val completions = habit.completionsByDate[habit.oneTimeDate ?: ""] ?: 0
+                            completions < targets
+                        } else {
+                            true
+                        }
+                    }
 
-                    items(habits) { habit ->
+                    items(activeHabits) { habit ->
                         val isCompleted = habit.lastCompletedDate == todayFormat
                         HabitCard(
                             habit = habit,
