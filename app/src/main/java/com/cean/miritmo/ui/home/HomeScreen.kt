@@ -10,6 +10,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -44,6 +46,8 @@ fun HomeScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     
     var selectedDateMillis by remember { mutableStateOf(System.currentTimeMillis()) }
+    var currentWeekOffset by remember { mutableStateOf(0) }
+    
     val selectedDateFormat = remember(selectedDateMillis) {
         SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date(selectedDateMillis))
     }
@@ -54,10 +58,15 @@ fun HomeScreen(
                 val habitDate = habit.oneTimeDate ?: java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date(habit.createdAt))
                 habitDate == selectedDateFormat
             } else {
-                val calendar = java.util.Calendar.getInstance().apply { timeInMillis = selectedDateMillis }
-                val calendarDay = calendar.get(java.util.Calendar.DAY_OF_WEEK)
-                val appDay = if (calendarDay == java.util.Calendar.SUNDAY) 7 else calendarDay - 1
-                habit.repeatDays.isEmpty() || habit.repeatDays.contains(appDay)
+                val createdDateFormat = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date(habit.createdAt))
+                if (selectedDateFormat >= createdDateFormat) {
+                    val calendar = java.util.Calendar.getInstance().apply { timeInMillis = selectedDateMillis }
+                    val calendarDay = calendar.get(java.util.Calendar.DAY_OF_WEEK)
+                    val appDay = if (calendarDay == java.util.Calendar.SUNDAY) 7 else calendarDay - 1
+                    habit.repeatDays.isEmpty() || habit.repeatDays.contains(appDay)
+                } else {
+                    false
+                }
             }
         }
     }
@@ -133,16 +142,19 @@ fun HomeScreen(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                 ) {
-                    Row(
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 20.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                            .padding(horizontal = 16.dp, vertical = 20.dp)
                     ) {
-                        val weekDays = remember {
+                        val weekDays = remember(currentWeekOffset) {
                             val tempCal = java.util.Calendar.getInstance()
-                            // Set to the current week's Monday
                             tempCal.firstDayOfWeek = java.util.Calendar.MONDAY
+                            
+                            // Adjust week
+                            tempCal.add(java.util.Calendar.WEEK_OF_YEAR, currentWeekOffset)
+                            
+                            // Set to Monday of that week
                             tempCal.set(java.util.Calendar.DAY_OF_WEEK, java.util.Calendar.MONDAY)
                             tempCal.set(java.util.Calendar.HOUR_OF_DAY, 0)
                             tempCal.set(java.util.Calendar.MINUTE, 0)
@@ -150,43 +162,74 @@ fun HomeScreen(
                             tempCal.set(java.util.Calendar.MILLISECOND, 0)
                             
                             val daysList = mutableListOf<java.util.Calendar>()
-                            for (i in 0..6) { // Mostramos 7 días (LUN a DOM)
+                            for (i in 0..6) {
                                 daysList.add(tempCal.clone() as java.util.Calendar)
                                 tempCal.add(java.util.Calendar.DAY_OF_MONTH, 1)
                             }
                             daysList
                         }
 
-                        val dayFormat = remember { java.text.SimpleDateFormat("EEE", java.util.Locale("es", "ES")) }
-                        val numFormat = remember { java.text.SimpleDateFormat("d", java.util.Locale.getDefault()) }
-                        val fullFormat = remember { java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()) }
+                        // Use Thursday to determine the month of the week
+                        val monthNameFormat = remember { java.text.SimpleDateFormat("MMMM yyyy", java.util.Locale("es", "ES")) }
+                        val currentMonthName = monthNameFormat.format(weekDays[3].time).replaceFirstChar { if (it.isLowerCase()) it.titlecase(java.util.Locale.getDefault()) else it.toString() }
 
-                        weekDays.forEach { cal ->
-                            val isSelected = fullFormat.format(cal.time) == fullFormat.format(Date(selectedDateMillis))
-                            val dayName = dayFormat.format(cal.time).uppercase(java.util.Locale("es", "ES")).replace(".", "").take(3)
-                            val dayNum = numFormat.format(cal.time)
+                        // Month Header with Navigation
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            IconButton(onClick = { currentWeekOffset-- }) {
+                                Icon(Icons.Filled.ChevronLeft, contentDescription = "Semana anterior", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            
+                            Text(
+                                text = currentMonthName,
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            
+                            IconButton(onClick = { currentWeekOffset++ }) {
+                                Icon(Icons.Filled.ChevronRight, contentDescription = "Siguiente semana", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
 
-                            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { selectedDateMillis = cal.timeInMillis }) {
-                                Text(
-                                    text = dayName,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Box(
-                                    modifier = Modifier
-                                        .size(40.dp)
-                                        .clip(CircleShape)
-                                        .background(if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent),
-                                    contentAlignment = Alignment.Center
-                                ) {
+                        // Days Row
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            val dayFormat = remember { java.text.SimpleDateFormat("EEE", java.util.Locale("es", "ES")) }
+                            val numFormat = remember { java.text.SimpleDateFormat("d", java.util.Locale.getDefault()) }
+                            val fullFormat = remember { java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()) }
+    
+                            weekDays.forEach { cal ->
+                                val isSelected = fullFormat.format(cal.time) == fullFormat.format(Date(selectedDateMillis))
+                                val dayName = dayFormat.format(cal.time).uppercase(java.util.Locale("es", "ES")).replace(".", "").take(3)
+                                val dayNum = numFormat.format(cal.time)
+    
+                                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { selectedDateMillis = cal.timeInMillis }) {
                                     Text(
-                                        text = dayNum,
+                                        text = dayName,
+                                        fontSize = 10.sp,
                                         fontWeight = FontWeight.Bold,
-                                        fontSize = 16.sp,
-                                        color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Box(
+                                        modifier = Modifier
+                                            .size(40.dp)
+                                            .clip(CircleShape)
+                                            .background(if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = dayNum,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 16.sp,
+                                            color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
                                 }
                             }
                         }
