@@ -69,6 +69,7 @@ fun ProgressScreen(
             }
 
             val activeHabits = habits.filter { habit ->
+                if (habit.isDeleted || !habit.isActive) return@filter false
                 if (habit.oneTime) {
                     val targets = maxOf(1, habit.getEffectiveTargetTimes().size)
                     val completions = habit.completionsByDate[habit.oneTimeDate ?: ""] ?: 0

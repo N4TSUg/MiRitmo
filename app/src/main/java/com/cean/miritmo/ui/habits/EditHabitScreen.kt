@@ -52,13 +52,15 @@ fun EditHabitScreen(
     var selectedCategory by remember { mutableStateOf(habit.category.replaceFirstChar { it.uppercase() }) }
     var selectedDays by remember { mutableStateOf(habit.frequency.split(", ").toSet()) }
     
-    // One-time habit state
     var isOneTime by remember { mutableStateOf(habit.oneTime) }
     var oneTimeDateMillis by remember { mutableStateOf<Long?>(
         try {
             if (habit.oneTimeDate != null) java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).parse(habit.oneTimeDate)?.time else System.currentTimeMillis()
         } catch (e: Exception) { System.currentTimeMillis() }
     ) }
+    
+    var isActive by remember { mutableStateOf(habit.isActive) }
+    var isPrivate by remember { mutableStateOf(habit.isPrivate) }
     var showDatePicker by remember { mutableStateOf(false) }
 
     var targetTimes by remember { mutableStateOf(habit.getEffectiveTargetTimes()) }
@@ -164,7 +166,9 @@ fun EditHabitScreen(
                             targetTimes = targetTimes,
                             durationMinutes = if (durationMinutes > 0) durationMinutes else null,
                             oneTime = isOneTime,
-                            oneTimeDate = formattedDate
+                            oneTimeDate = formattedDate,
+                            isActive = isActive,
+                            isPrivate = isPrivate
                         )
 
                         isSaving = true
@@ -241,6 +245,28 @@ fun EditHabitScreen(
                         ),
                         singleLine = true
                     )
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = if (isActive) "Hábito Activo" else "Hábito Inactivo",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Switch(
+                            checked = isActive,
+                            onCheckedChange = { isActive = it },
+                            colors = SwitchDefaults.colors(checkedTrackColor = MaterialTheme.colorScheme.primary)
+                        )
+                    }
                 }
             }
 
@@ -472,6 +498,42 @@ fun EditHabitScreen(
                                 }
                             }
                         }
+                    }
+                }
+            }
+
+            // Privacidad
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(4.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp, vertical = 16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Hábito Privado",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Ocultar este hábito a otros usuarios",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = isPrivate,
+                            onCheckedChange = { isPrivate = it }
+                        )
                     }
                 }
             }

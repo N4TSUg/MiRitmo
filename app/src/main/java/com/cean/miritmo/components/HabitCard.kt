@@ -12,6 +12,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.outlined.Face
+import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -37,9 +40,21 @@ fun HabitCard(
     onPlayClick: (() -> Unit)? = null,
     timerState: TimerState? = null
 ) {
-    // Definir colores basados en la "categoría" (simulado para el diseño)
-    val accentColor = MaterialTheme.colorScheme.secondary
-    val accentBgColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f)
+    // Definir colores basados en la categoría
+    val accentColor = when (habit.category.lowercase()) {
+        "salud" -> Color(0xFF10B981)
+        "mente" -> Color(0xFF3B82F6)
+        "productividad" -> Color(0xFFF472B6)
+        else -> MaterialTheme.colorScheme.secondary
+    }
+    val accentBgColor = accentColor.copy(alpha = 0.15f)
+    
+    val categoryIcon = when (habit.category.lowercase()) {
+        "salud" -> Icons.Outlined.FavoriteBorder
+        "mente" -> Icons.Outlined.Face
+        "productividad" -> Icons.Outlined.Star
+        else -> Icons.Filled.Notifications
+    }
 
     Card(
         modifier = Modifier
@@ -81,7 +96,7 @@ fun HabitCard(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Filled.Notifications, // Placeholder icon
+                        imageVector = categoryIcon,
                         contentDescription = "Icon",
                         tint = accentColor,
                         modifier = Modifier.size(24.dp)

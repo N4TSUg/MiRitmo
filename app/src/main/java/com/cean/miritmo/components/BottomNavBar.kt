@@ -9,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -30,6 +31,7 @@ sealed class BottomNavItem(var title: String, var icon: ImageVector, var route: 
     object Home : BottomNavItem("HOY", Icons.Filled.DateRange, Screen.Home.route)
     object Progress : BottomNavItem("PROGRESO", Icons.Filled.Star, Screen.Progress.route)
     object Habits : BottomNavItem("HÁBITOS", Icons.Filled.CheckCircle, Screen.Habits.route)
+    object Search : BottomNavItem("BUSCAR", Icons.Filled.Search, Screen.Search.route)
     object Settings : BottomNavItem("AJUSTES", Icons.Filled.Settings, Screen.Profile.route)
 }
 
@@ -39,6 +41,7 @@ fun BottomNavBar(navController: NavController) {
         BottomNavItem.Home,
         BottomNavItem.Progress,
         BottomNavItem.Habits,
+        BottomNavItem.Search,
         BottomNavItem.Settings
     )
     
@@ -78,7 +81,7 @@ fun BottomNavBar(navController: NavController) {
                                 restoreState = true
                             }
                         }
-                        .padding(horizontal = if (selected) 24.dp else 16.dp, vertical = if (selected) 12.dp else 4.dp)
+                        .padding(horizontal = if (selected) 16.dp else 8.dp, vertical = if (selected) 8.dp else 4.dp)
                 ) {
                     Icon(
                         imageVector = item.icon,

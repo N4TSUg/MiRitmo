@@ -54,6 +54,7 @@ fun HomeScreen(
 
     val validHabitsForToday = remember(habits, selectedDateMillis) {
         habits.filter { habit ->
+            if (habit.isDeleted || !habit.isActive) return@filter false
             if (habit.oneTime) {
                 val habitDate = habit.oneTimeDate ?: java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date(habit.createdAt))
                 habitDate == selectedDateFormat

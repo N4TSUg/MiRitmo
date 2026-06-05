@@ -25,6 +25,7 @@ import com.cean.miritmo.ui.profile.ProfileScreen
 import com.cean.miritmo.viewmodel.AppViewModelFactory
 import com.cean.miritmo.viewmodel.AuthViewModel
 import com.cean.miritmo.viewmodel.HabitsViewModel
+import com.cean.miritmo.viewmodel.SearchViewModel
 
 @Composable
 fun AppNavGraph(
@@ -33,6 +34,7 @@ fun AppNavGraph(
 ) {
     val authViewModel: AuthViewModel = viewModel(factory = factory)
     val habitsViewModel: HabitsViewModel = viewModel(factory = factory)
+    val searchViewModel: SearchViewModel = viewModel(factory = factory)
 
     LaunchedEffect(Unit) {
         authViewModel.loadCurrentUser()
@@ -42,6 +44,7 @@ fun AppNavGraph(
     val showBottomBar = currentRoute in listOf(
         Screen.Home.route,
         Screen.Habits.route,
+        Screen.Search.route,
         Screen.Progress.route,
         Screen.Profile.route
     )
@@ -132,6 +135,27 @@ fun AppNavGraph(
                 ProfileScreen(
                     navController = navController,
                     authViewModel = authViewModel
+                )
+            }
+            composable("history") {
+                com.cean.miritmo.ui.habits.HistoryScreen(
+                    navController = navController,
+                    viewModel = habitsViewModel
+                )
+            }
+            composable(Screen.Search.route) {
+                com.cean.miritmo.ui.search.SearchScreen(
+                    navController = navController,
+                    viewModel = searchViewModel
+                )
+            }
+            composable(Screen.UserProfile.route) { backStackEntry ->
+                val userId = backStackEntry.arguments?.getString("userId") ?: ""
+                com.cean.miritmo.ui.profile.UserProfileScreen(
+                    navController = navController,
+                    searchViewModel = searchViewModel,
+                    habitsViewModel = habitsViewModel,
+                    userId = userId
                 )
             }
         }

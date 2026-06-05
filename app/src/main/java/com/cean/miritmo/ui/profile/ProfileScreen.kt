@@ -51,6 +51,7 @@ fun ProfileScreen(
     var showAvatarSelectionDialog by remember { mutableStateOf(false) }
     
     var newName by remember { mutableStateOf("") }
+    var apodo by remember { mutableStateOf("") }
     var oldPassword by remember { mutableStateOf("") }
     var newPassword by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
@@ -160,20 +161,29 @@ fun ProfileScreen(
             onDismissRequest = { if (!isSaving) showEditNameDialog = false },
             title = { Text("Editar Nombre") },
             text = {
-                OutlinedTextField(
-                    value = newName,
-                    onValueChange = { newName = it },
-                    label = { Text("Nuevo nombre") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = newName,
+                        onValueChange = { newName = it },
+                        label = { Text("Nuevo nombre") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = apodo,
+                        onValueChange = { apodo = it },
+                        label = { Text("Apodo (Opcional)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             },
             confirmButton = {
                 TextButton(
                     onClick = {
                         if (newName.isNotBlank() && !isSaving) {
                             isSaving = true
-                            authViewModel.updateName(newName) { success ->
+                            authViewModel.updateProfile(newName,apodo) { success ->
                                 isSaving = false
                                 if (success) {
                                     showEditNameDialog = false
@@ -367,6 +377,14 @@ fun ProfileScreen(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    if (!currentUser?.apodo.isNullOrBlank()) {
+                        Text(
+                            text = "\"${currentUser?.apodo}\"",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
                 }
             }
 
@@ -390,6 +408,7 @@ fun ProfileScreen(
                             title = "Editar Nombre",
                             onClick = {
                                 newName = currentUser?.name ?: ""
+                                apodo = currentUser?.apodo ?: ""
                                 showEditNameDialog = true
                             }
                         )

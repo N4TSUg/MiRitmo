@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -51,16 +52,26 @@ fun HabitsScreen(
                 .padding(padding)
         ) {
             // Header
-            Box(
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(24.dp)
+                    .padding(24.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Todos mis Hábitos",
+                    text = "Mis Hábitos Activos",
                     style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.ExtraBold),
                     color = MaterialTheme.colorScheme.primary
                 )
+                IconButton(onClick = { navController.navigate("history") }) {
+                    Icon(
+                        imageVector = Icons.Filled.History,
+                        contentDescription = "Historial",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
             }
 
             if (isLoading) {
@@ -82,6 +93,7 @@ fun HabitsScreen(
                     val todayFormat = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())
                     
                     val activeHabits = habits.filter { habit ->
+                        if (habit.isDeleted || !habit.isActive) return@filter false
                         if (habit.oneTime) {
                             val targets = maxOf(1, habit.getEffectiveTargetTimes().size)
                             val completions = habit.completionsByDate[habit.oneTimeDate ?: ""] ?: 0

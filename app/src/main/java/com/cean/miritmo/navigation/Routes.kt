@@ -14,4 +14,8 @@ sealed class Screen(val route: String) {
     object Timer : Screen("timer/{habitId}") {
         fun createRoute(habitId: String) = "timer/$habitId"
     }
+    object Search : Screen("search")
+    object UserProfile : Screen("user_profile/{userId}") {
+        fun createRoute(userId: String) = "user_profile/$userId"
+    }
 }

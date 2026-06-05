@@ -89,11 +89,15 @@ class AuthRepository(
         }
     }
 
-    suspend fun updateName(newName: String): Result<Unit> {
+    suspend fun updateProfile(newName: String,apodo: String?): Result<Unit> {
         return try {
             val userId = getCurrentUserId() ?: throw Exception("No user logged in")
+            val updates = mapOf(
+                "name" to newName,
+                "apodo" to apodo
+            )
             db.collection(FirestoreManager.USERS_COLLECTION).document(userId)
-                .update("name", newName).await()
+                .update(updates).await()
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -124,6 +128,27 @@ class AuthRepository(
                 .set(mapOf("photoUrl" to avatarId), SetOptions.merge()).await()
                 
             Result.success(avatarId)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun searchUsers(query: String): Result<List<User>> {
+        return try {
+            val currentUserId = getCurrentUserId()
+            val queryLower = query.lowercase()
+            
+            // For a production app we'd use Algolia or Firebase extensions.
+            // Here we do a simple client-side filter after fetching users.
+            val snapshot = db.collection(FirestoreManager.USERS_COLLECTION).get().await()
+            val users = snapshot.documents.mapNotNull { it.toObject(User::class.java) }
+                .filter { it.id != currentUserId } // Don't show ourselves
+                .filter { 
+                    it.name.lowercase().contains(queryLower) || 
+                    (it.apodo != null && it.apodo.lowercase().contains(queryLower)) 
+                }
+                
+            Result.success(users)
         } catch (e: Exception) {
             Result.failure(e)
         }

@@ -38,16 +38,29 @@ fun AddHabitScreen(
     viewModel: HabitsViewModel,
     photoUrl: String? = null
 ) {
-    var habitName by remember { mutableStateOf("") }
-    var selectedCategory by remember { mutableStateOf("Salud") }
-    var selectedDays by remember { mutableStateOf(setOf("L", "M", "X", "J", "V")) } // L, M, X (Mie), J, V, S, D
-    var targetTimes by remember { mutableStateOf(listOf("08:00 AM")) }
-    var durationMinutes by remember { mutableStateOf(0) }
+    val habitToCopy = viewModel.habitToCopy
+
+    var habitName by remember { mutableStateOf(habitToCopy?.name ?: "") }
+    var selectedCategory by remember { mutableStateOf(habitToCopy?.category?.replaceFirstChar { it.uppercase() } ?: "Salud") }
+    
+    val initialDays = habitToCopy?.repeatDays?.mapNotNull {
+        when(it) { 1 -> "L"; 2 -> "M"; 3 -> "X"; 4 -> "J"; 5 -> "V"; 6 -> "S"; 7 -> "D"; else -> null }
+    }?.toSet()
+    var selectedDays by remember { mutableStateOf(initialDays ?: setOf("L", "M", "X", "J", "V")) } // L, M, X (Mie), J, V, S, D
+    var targetTimes by remember { mutableStateOf(habitToCopy?.getEffectiveTargetTimes() ?: emptyList<String>()) }
+    var durationMinutes by remember { mutableStateOf(habitToCopy?.durationMinutes ?: 0) }
+    var isPrivate by remember { mutableStateOf(habitToCopy?.isPrivate ?: false) }
     
     var isSaving by remember { mutableStateOf(false) }
 
     // One-time habit state
-    var isOneTime by remember { mutableStateOf(false) }
+    var isOneTime by remember { mutableStateOf(habitToCopy?.oneTime ?: false) }
+    
+    // Clear habitToCopy once loaded
+    LaunchedEffect(Unit) {
+        viewModel.habitToCopy = null
+    }
+
     var oneTimeDateMillis by remember { mutableStateOf<Long?>(System.currentTimeMillis()) }
     var showDatePicker by remember { mutableStateOf(false) }
 
@@ -125,6 +138,7 @@ fun AddHabitScreen(
                             durationMinutes = if (durationMinutes > 0) durationMinutes else null,
                             oneTime = isOneTime,
                             oneTimeDate = formattedDate,
+                            isPrivate = isPrivate,
                             onComplete = { success ->
                                 isSaving = false
                                 if (success) {
@@ -446,6 +460,42 @@ fun AddHabitScreen(
                                 }
                             }
                         }
+                    }
+                }
+            }
+
+            // Privacidad
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(4.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp, vertical = 16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Hábito Privado",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Ocultar este hábito a otros usuarios",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = isPrivate,
+                            onCheckedChange = { isPrivate = it }
+                        )
                     }
                 }
             }

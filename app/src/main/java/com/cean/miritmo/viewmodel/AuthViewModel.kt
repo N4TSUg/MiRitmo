@@ -82,11 +82,11 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
         }
     }
 
-    fun updateName(newName: String, onComplete: (Boolean) -> Unit) {
+    fun updateProfile(newName: String, apodo: String?, onComplete: (Boolean) -> Unit) {
         viewModelScope.launch {
-            val result = repository.updateName(newName)
+            val result = repository.updateProfile(newName,apodo)
             if (result.isSuccess) {
-                _currentUser.value = _currentUser.value?.copy(name = newName)
+                _currentUser.value = _currentUser.value?.copy(name = newName, apodo=apodo?:"")
                 onComplete(true)
             } else {
                 onComplete(false)

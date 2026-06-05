@@ -20,6 +20,10 @@ class AppViewModelFactory(
             @Suppress("UNCHECKED_CAST")
             return HabitsViewModel(application, habitRepository, authRepository) as T
         }
+        if (modelClass.isAssignableFrom(SearchViewModel::class.java)) {
+            @Suppress("UNCHECKED_CAST")
+            return SearchViewModel(authRepository, habitRepository) as T
+        }
         throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
     }
 }

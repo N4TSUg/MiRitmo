@@ -123,7 +123,9 @@ class HabitsViewModel(
         }
     }
 
-    fun addHabit(name: String, category: String, frequency: String, repeatDays: List<Int>, targetTimes: List<String>, durationMinutes: Int?, oneTime: Boolean = false, oneTimeDate: String? = null, onComplete: (Boolean) -> Unit) {
+    var habitToCopy: Habit? = null
+
+    fun addHabit(name: String, category: String, frequency: String, repeatDays: List<Int>, targetTimes: List<String>, durationMinutes: Int?, oneTime: Boolean = false, oneTimeDate: String? = null, isPrivate: Boolean = false, onComplete: (Boolean) -> Unit) {
         val userId = authRepository.getCurrentUserId() ?: return
         viewModelScope.launch {
             val newHabit = Habit(
@@ -138,7 +140,8 @@ class HabitsViewModel(
                 targetTime = if (targetTimes.isNotEmpty()) targetTimes[0] else null, // Fallback for old versions
                 targetTimes = targetTimes,
                 durationMinutes = durationMinutes,
-                createdAt = System.currentTimeMillis()
+                createdAt = System.currentTimeMillis(),
+                isPrivate = isPrivate
             )
             val result = habitRepository.createHabit(newHabit)
             if (result.isSuccess) {
@@ -160,7 +163,11 @@ class HabitsViewModel(
         viewModelScope.launch {
             val result = habitRepository.updateHabit(habit)
             if (result.isSuccess) {
-                alarmScheduler.scheduleHabitAlarm(habit)
+                if (habit.isActive && !habit.isDeleted) {
+                    alarmScheduler.scheduleHabitAlarm(habit)
+                } else {
+                    alarmScheduler.cancelHabitAlarm(habit)
+                }
                 loadData()
                 onComplete(true)
             } else {
@@ -171,6 +178,18 @@ class HabitsViewModel(
 
     fun deleteHabit(habitId: String, onSuccess: () -> Unit) {
         viewModelScope.launch {
+            val habit = getHabitById(habitId) ?: return@launch
+            val result = habitRepository.updateHabit(habit.copy(isDeleted = true))
+            if (result.isSuccess) {
+                alarmScheduler.cancelHabitAlarm(habit)
+                loadData()
+                onSuccess()
+            }
+        }
+    }
+
+    fun permanentlyDeleteHabit(habitId: String, onSuccess: () -> Unit) {
+        viewModelScope.launch {
             val habit = getHabitById(habitId)
             val result = habitRepository.deleteHabit(habitId)
             if (result.isSuccess) {
@@ -179,6 +198,36 @@ class HabitsViewModel(
                 }
                 loadData()
                 onSuccess()
+            }
+        }
+    }
+
+    fun toggleHabitActiveStatus(habitId: String) {
+        viewModelScope.launch {
+            val habit = getHabitById(habitId) ?: return@launch
+            val newHabit = habit.copy(isActive = !habit.isActive)
+            val result = habitRepository.updateHabit(newHabit)
+            if (result.isSuccess) {
+                if (newHabit.isActive && !newHabit.isDeleted) {
+                    alarmScheduler.scheduleHabitAlarm(newHabit)
+                } else {
+                    alarmScheduler.cancelHabitAlarm(newHabit)
+                }
+                loadData()
+            }
+        }
+    }
+
+    fun restoreHabit(habitId: String) {
+        viewModelScope.launch {
+            val habit = getHabitById(habitId) ?: return@launch
+            val newHabit = habit.copy(isDeleted = false)
+            val result = habitRepository.updateHabit(newHabit)
+            if (result.isSuccess) {
+                if (newHabit.isActive) {
+                    alarmScheduler.scheduleHabitAlarm(newHabit)
+                }
+                loadData()
             }
         }
     }
