@@ -9,6 +9,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.SpatialTracking
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,6 +28,7 @@ import com.cean.miritmo.viewmodel.AuthViewModel
 @Composable
 fun RegisterScreen(navController: NavController, viewModel: AuthViewModel) {
     var name by remember { mutableStateOf("") }
+    var apodo by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
@@ -65,7 +67,7 @@ fun RegisterScreen(navController: NavController, viewModel: AuthViewModel) {
             )
             
             Text(
-                text = "Únete a las personas que están transformando sus días a través de la constancia.",
+                text = "Empieza a transformar tus días a través de la constancia.",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = 32.dp)
@@ -74,7 +76,7 @@ fun RegisterScreen(navController: NavController, viewModel: AuthViewModel) {
             AuthTextField(
                 value = name,
                 onValueChange = { name = it },
-                label = "NOMBRE COMPLETO",
+                label = "Nombre Completo",
                 placeholder = "Ej. Alex Rivera",
                 trailingIcon = {
                     Icon(
@@ -85,7 +87,22 @@ fun RegisterScreen(navController: NavController, viewModel: AuthViewModel) {
                 }
             )
             Spacer(modifier = Modifier.height(16.dp))
-            
+
+            AuthTextField(
+                value = apodo,
+                onValueChange = { apodo = it },
+                label = "APODO (OPCIONAL)",
+                placeholder = "Ej. Slayer",
+                trailingIcon = {
+                    Icon(
+                        imageVector = Icons.Filled.SpatialTracking,
+                        contentDescription = "Apodo",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                    )
+                }
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+
             AuthTextField(
                 value = email,
                 onValueChange = { email = it },
@@ -132,7 +149,7 @@ fun RegisterScreen(navController: NavController, viewModel: AuthViewModel) {
                             showErrorEmptyFields = true
                         } else if (password == confirmPassword) {
                             showErrorEmptyFields = false
-                            viewModel.register(name, email, password) 
+                            viewModel.register(name, apodo , email, password)
                         }
                     },
                     modifier = Modifier
@@ -141,7 +158,7 @@ fun RegisterScreen(navController: NavController, viewModel: AuthViewModel) {
                     shape = RoundedCornerShape(28.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6))
                 ) {
-                    Text("Siguiente ➔", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Text("Registrarse ➔", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                 }
             }
 

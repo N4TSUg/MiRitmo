@@ -54,10 +54,10 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
         }
     }
 
-    fun register(name: String, email: String, pass: String) {
+    fun register(name: String, apodo: String? ,email: String, pass: String) {
         viewModelScope.launch {
             _authState.value = AuthState.Loading
-            val result = repository.register(name, email, pass)
+            val result = repository.register(name,apodo, email, pass)
             if (result.isSuccess) {
                 _authState.value = AuthState.Success
             } else {

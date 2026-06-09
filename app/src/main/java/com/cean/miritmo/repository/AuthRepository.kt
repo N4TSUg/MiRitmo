@@ -46,7 +46,7 @@ class AuthRepository(
         }
     }
 
-    suspend fun register(name: String, email: String, password: String): Result<User> {
+    suspend fun register(name: String, apodo: String?, email: String, password: String): Result<User> {
         return try {
             val result = auth.createUserWithEmailAndPassword(email, password).await()
             val firebaseUser = result.user ?: throw Exception("Error al registrarse")
@@ -54,7 +54,8 @@ class AuthRepository(
             val user = User(
                 id = firebaseUser.uid,
                 name = name,
-                email = email
+                email = email,
+                apodo = apodo
             )
             
             // Save to Firestore
