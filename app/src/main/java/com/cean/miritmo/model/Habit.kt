@@ -26,7 +26,8 @@ data class Habit(
     var isDeleted: Boolean = false,
     @get:PropertyName("isPrivate")
     @set:PropertyName("isPrivate")
-    var isPrivate: Boolean = false
+    var isPrivate: Boolean = false,
+    val routineId: String? = null
 ) {
     // Helper to get all times, falling back to legacy targetTime if targetTimes is empty
     fun getEffectiveTargetTimes(): List<String> {

@@ -36,7 +36,8 @@ import com.cean.miritmo.viewmodel.HabitsViewModel
 fun AddHabitScreen(
     navController: NavController,
     viewModel: HabitsViewModel,
-    photoUrl: String? = null
+    photoUrl: String? = null,
+    routineId: String? = null
 ) {
     val habitToCopy = viewModel.habitToCopy
 
@@ -139,6 +140,7 @@ fun AddHabitScreen(
                             oneTime = isOneTime,
                             oneTimeDate = formattedDate,
                             isPrivate = isPrivate,
+                            routineId = routineId,
                             onComplete = { success ->
                                 isSaving = false
                                 if (success) {

@@ -18,6 +18,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -37,6 +38,7 @@ fun ProgressScreen(
     onNavigateToTimer: (String) -> Unit
 ) {
     val habits by viewModel.habits.collectAsState()
+    val routines by viewModel.routines.collectAsState()
     val timers by viewModel.timers.collectAsState()
     
     val todayDate = Date()
@@ -79,22 +81,71 @@ fun ProgressScreen(
                 }
             }
 
-            items(activeHabits) { habit ->
-                val targets = maxOf(1, habit.getEffectiveTargetTimes().size)
-                val completions = habit.completionsByDate[todayFormat] ?: 0
-                val isCompleted = completions >= targets
-                val streak = habit.currentStreak
-                
-                ProgressHabitCard(
-                    habit = habit,
-                    isCompleted = isCompleted,
-                    currentCompletions = completions,
-                    totalTargets = targets,
-                    streak = streak,
-                    onToggleCompletion = { viewModel.toggleHabitCompletion(habit.id, isCompleted, todayFormat) },
-                    onPlayClick = { onNavigateToTimer(habit.id) },
-                    timerState = timers[habit.id]
-                )
+            val standaloneHabits = activeHabits.filter { it.routineId == null }
+            val habitsInRoutines = activeHabits.filter { it.routineId != null }
+            val groupedByRoutine = habitsInRoutines.groupBy { it.routineId!! }
+
+            // Mostrar hábitos de cada rutina
+            groupedByRoutine.forEach { (routineId, routineHabits) ->
+                val routineName = routines.find { it.id == routineId }?.name ?: "Rutina Desconocida"
+                item {
+                    Text(
+                        text = routineName,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                }
+                items(routineHabits) { habit ->
+                    val targets = maxOf(1, habit.getEffectiveTargetTimes().size)
+                    val completions = habit.completionsByDate[todayFormat] ?: 0
+                    val isCompleted = completions >= targets
+                    val streak = habit.currentStreak
+                    
+                    ProgressHabitCard(
+                        habit = habit,
+                        isCompleted = isCompleted,
+                        currentCompletions = completions,
+                        totalTargets = targets,
+                        streak = streak,
+                        onToggleCompletion = { viewModel.toggleHabitCompletion(habit.id, isCompleted, todayFormat) },
+                        onPlayClick = { onNavigateToTimer(habit.id) },
+                        timerState = timers[habit.id]
+                    )
+                }
+            }
+
+            // Mostrar hábitos sueltos si hay
+            if (standaloneHabits.isNotEmpty()) {
+                if (groupedByRoutine.isNotEmpty()) {
+                    item {
+                        Text(
+                            text = "Hábitos",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(top = 8.dp, bottom = 8.dp)
+                        )
+                    }
+                }
+                items(standaloneHabits) { habit ->
+                    val targets = maxOf(1, habit.getEffectiveTargetTimes().size)
+                    val completions = habit.completionsByDate[todayFormat] ?: 0
+                    val isCompleted = completions >= targets
+                    val streak = habit.currentStreak
+                    
+                    ProgressHabitCard(
+                        habit = habit,
+                        isCompleted = isCompleted,
+                        currentCompletions = completions,
+                        totalTargets = targets,
+                        streak = streak,
+                        onToggleCompletion = { viewModel.toggleHabitCompletion(habit.id, isCompleted, todayFormat) },
+                        onPlayClick = { onNavigateToTimer(habit.id) },
+                        timerState = timers[habit.id]
+                    )
+                }
             }
             
             if (activeHabits.isEmpty()) {
@@ -124,15 +175,25 @@ fun ProgressHabitCard(
     val accentColor = MaterialTheme.colorScheme.secondary
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(6.dp, RoundedCornerShape(24.dp), spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f), clip = false),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(2.dp)
+        elevation = CardDefaults.cardElevation(0.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .background(
+                    brush = androidx.compose.ui.graphics.Brush.horizontalGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.05f),
+                            MaterialTheme.colorScheme.surface
+                        )
+                    )
+                )
+                .padding(20.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {

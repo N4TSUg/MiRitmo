@@ -30,7 +30,7 @@ import com.cean.miritmo.navigation.Screen
 sealed class BottomNavItem(var title: String, var icon: ImageVector, var route: String) {
     object Home : BottomNavItem("HOY", Icons.Filled.DateRange, Screen.Home.route)
     object Progress : BottomNavItem("PROGRESO", Icons.Filled.Star, Screen.Progress.route)
-    object Habits : BottomNavItem("HÁBITOS", Icons.Filled.CheckCircle, Screen.Habits.route)
+    object Habits : BottomNavItem("MIS TAREAS", Icons.Filled.CheckCircle, Screen.Habits.route)
     object Search : BottomNavItem("BUSCAR", Icons.Filled.Search, Screen.Search.route)
     object Settings : BottomNavItem("AJUSTES", Icons.Filled.Settings, Screen.Profile.route)
 }

@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.cean.miritmo.model.Habit
 import com.cean.miritmo.model.HabitRecord
+import com.cean.miritmo.model.Routine
 import com.cean.miritmo.repository.AuthRepository
 import com.cean.miritmo.repository.HabitRepository
 import com.cean.miritmo.util.AlarmScheduler
@@ -30,6 +31,9 @@ class HabitsViewModel(
 
     private val _habits = MutableStateFlow<List<Habit>>(emptyList())
     val habits: StateFlow<List<Habit>> = _habits
+
+    private val _routines = MutableStateFlow<List<Routine>>(emptyList())
+    val routines: StateFlow<List<Routine>> = _routines
 
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading
@@ -81,6 +85,11 @@ class HabitsViewModel(
                 _habits.value = habitsResult.getOrNull() ?: emptyList()
             }
             
+            val routinesResult = habitRepository.getRoutinesForUser(userId)
+            if (routinesResult.isSuccess) {
+                _routines.value = routinesResult.getOrNull() ?: emptyList()
+            }
+            
             // Programar las alarmas para todos los hábitos cargados
             _habits.value.forEach { alarmScheduler.scheduleHabitAlarm(it) }
             
@@ -125,7 +134,7 @@ class HabitsViewModel(
 
     var habitToCopy: Habit? = null
 
-    fun addHabit(name: String, category: String, frequency: String, repeatDays: List<Int>, targetTimes: List<String>, durationMinutes: Int?, oneTime: Boolean = false, oneTimeDate: String? = null, isPrivate: Boolean = false, onComplete: (Boolean) -> Unit) {
+    fun addHabit(name: String, category: String, frequency: String, repeatDays: List<Int>, targetTimes: List<String>, durationMinutes: Int?, oneTime: Boolean = false, oneTimeDate: String? = null, isPrivate: Boolean = false, routineId: String? = null, onComplete: (Boolean) -> Unit) {
         val userId = authRepository.getCurrentUserId() ?: return
         viewModelScope.launch {
             val newHabit = Habit(
@@ -141,12 +150,20 @@ class HabitsViewModel(
                 targetTimes = targetTimes,
                 durationMinutes = durationMinutes,
                 createdAt = System.currentTimeMillis(),
-                isPrivate = isPrivate
+                isPrivate = isPrivate,
+                routineId = routineId
             )
             val result = habitRepository.createHabit(newHabit)
             if (result.isSuccess) {
-                // Hacemos un reload para obtener los IDs reales, o podemos agendar con el id si existe (aquí no está el real a menos que usemos un push id)
-                // Usualmente createHabit no retorna el id, así que cargamos los datos y agendamos
+                val createdHabitId = result.getOrNull()
+                if (createdHabitId != null && routineId != null) {
+                    val routine = _routines.value.find { it.id == routineId }
+                    if (routine != null) {
+                        val newHabitIds = routine.habitIds.toMutableList().apply { add(createdHabitId) }
+                        habitRepository.updateRoutine(routine.copy(habitIds = newHabitIds))
+                        habitRepository.addHabitsToRoutine(routineId, listOf(createdHabitId))
+                    }
+                }
                 loadData()
                 onComplete(true)
             } else {
@@ -195,6 +212,13 @@ class HabitsViewModel(
             if (result.isSuccess) {
                 if (habit != null) {
                     alarmScheduler.cancelHabitAlarm(habit)
+                    if (habit.routineId != null) {
+                        val routine = _routines.value.find { it.id == habit.routineId }
+                        if (routine != null) {
+                            val newHabitIds = routine.habitIds - habit.id
+                            habitRepository.updateRoutine(routine.copy(habitIds = newHabitIds))
+                        }
+                    }
                 }
                 loadData()
                 onSuccess()
@@ -227,6 +251,162 @@ class HabitsViewModel(
                 if (newHabit.isActive) {
                     alarmScheduler.scheduleHabitAlarm(newHabit)
                 }
+                loadData()
+            }
+        }
+    }
+
+    fun copyHabitToMyProfile(habit: Habit, onSuccess: () -> Unit) {
+        val currentUserId = authRepository.getCurrentUserId() ?: return
+        viewModelScope.launch {
+            val newHabit = habit.copy(
+                id = "",
+                userId = currentUserId,
+                routineId = null,
+                createdAt = System.currentTimeMillis(),
+                completionsByDate = emptyMap(),
+                lastCompletedDate = null,
+                currentStreak = 0
+            )
+            val result = habitRepository.createHabit(newHabit)
+            if (result.isSuccess) {
+                loadData()
+                onSuccess()
+            }
+        }
+    }
+
+    fun copyRoutineToMyProfile(routine: Routine, routineHabits: List<Habit>, onSuccess: () -> Unit) {
+        val currentUserId = authRepository.getCurrentUserId() ?: return
+        viewModelScope.launch {
+            val newRoutine = routine.copy(
+                id = "",
+                userId = currentUserId,
+                habitIds = emptyList(), // will be populated
+                createdAt = System.currentTimeMillis()
+            )
+            val routineResult = habitRepository.createRoutine(newRoutine)
+            if (routineResult.isSuccess) {
+                val newRoutineId = routineResult.getOrNull() ?: ""
+                val newHabitIds = mutableListOf<String>()
+                
+                for (habit in routineHabits) {
+                    val newHabit = habit.copy(
+                        id = "",
+                        userId = currentUserId,
+                        routineId = newRoutineId,
+                        createdAt = System.currentTimeMillis(),
+                        completionsByDate = emptyMap(),
+                        lastCompletedDate = null,
+                        currentStreak = 0
+                    )
+                    val habitResult = habitRepository.createHabit(newHabit)
+                    if (habitResult.isSuccess) {
+                        newHabitIds.add(habitResult.getOrNull()!!)
+                    }
+                }
+                
+                val updatedRoutine = newRoutine.copy(id = newRoutineId, habitIds = newHabitIds)
+                habitRepository.updateRoutine(updatedRoutine)
+                
+                loadData()
+                onSuccess()
+            }
+        }
+    }
+
+
+    fun addRoutine(name: String, description: String, habitIds: List<String>, isPrivate: Boolean, onComplete: (Boolean) -> Unit) {
+        val userId = authRepository.getCurrentUserId() ?: return
+        viewModelScope.launch {
+            val newRoutine = Routine(
+                id = "",
+                userId = userId,
+                name = name,
+                description = description,
+                habitIds = habitIds,
+                createdAt = System.currentTimeMillis(),
+                isPrivate = isPrivate
+            )
+            val result = habitRepository.createRoutine(newRoutine)
+            if (result.isSuccess) {
+                val newRoutineId = result.getOrNull()
+                if (newRoutineId != null && habitIds.isNotEmpty()) {
+                    habitRepository.addHabitsToRoutine(newRoutineId, habitIds)
+                }
+                loadData()
+                onComplete(true)
+            } else {
+                onComplete(false)
+            }
+        }
+    }
+
+    fun updateRoutine(routine: Routine, newHabitIds: List<String>, onComplete: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val removedHabitIds = routine.habitIds.filter { it !in newHabitIds }
+            val updatedRoutine = routine.copy(habitIds = newHabitIds)
+            val result = habitRepository.updateRoutine(updatedRoutine)
+            if (result.isSuccess) {
+                if (newHabitIds.isNotEmpty()) {
+                    habitRepository.addHabitsToRoutine(routine.id, newHabitIds)
+                }
+                if (removedHabitIds.isNotEmpty()) {
+                    habitRepository.removeHabitsFromRoutine(removedHabitIds)
+                }
+                loadData()
+                onComplete(true)
+            } else {
+                onComplete(false)
+            }
+        }
+    }
+
+    fun deleteRoutine(routineId: String, onComplete: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val result = habitRepository.deleteRoutine(routineId)
+            if (result.isSuccess) {
+                loadData()
+                onComplete(true)
+            } else {
+                onComplete(false)
+            }
+        }
+    }
+
+    fun permanentlyDeleteRoutine(routineId: String, onComplete: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val routine = _routines.value.find { it.id == routineId }
+            val result = habitRepository.permanentlyDeleteRoutine(routineId)
+            if (result.isSuccess) {
+                if (routine != null && routine.habitIds.isNotEmpty()) {
+                    habitRepository.removeHabitsFromRoutine(routine.habitIds)
+                }
+                loadData()
+                onComplete(true)
+            } else {
+                onComplete(false)
+            }
+        }
+    }
+
+    fun restoreRoutine(routineId: String) {
+        viewModelScope.launch {
+            val routine = _routines.value.find { it.id == routineId } ?: return@launch
+            val updatedRoutine = routine.copy(isDeleted = false)
+            val result = habitRepository.updateRoutine(updatedRoutine)
+            if (result.isSuccess) {
+                loadData()
+            }
+        }
+    }
+
+    fun toggleRoutineActiveStatus(routineId: String) {
+        viewModelScope.launch {
+            val routine = _routines.value.find { it.id == routineId } ?: return@launch
+            val updatedRoutine = routine.copy(isActive = !routine.isActive)
+            val result = habitRepository.updateRoutine(updatedRoutine)
+            if (result.isSuccess) {
                 loadData()
             }
         }

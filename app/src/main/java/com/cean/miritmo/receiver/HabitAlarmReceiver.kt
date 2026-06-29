@@ -17,8 +17,13 @@ class HabitAlarmReceiver : BroadcastReceiver() {
         Log.d("HabitAlarmReceiver", "Alarm fired for habit: $habitName")
 
         val preferencesManager = PreferencesManager(context)
-        val notificationsEnabled = runBlocking {
-            preferencesManager.isNotificationsEnabledFlow.first() ?: true
+        
+        var notificationsEnabled = true
+        var soundUriStr: String? = null
+        
+        runBlocking {
+            notificationsEnabled = preferencesManager.isNotificationsEnabledFlow.first() ?: true
+            soundUriStr = preferencesManager.notificationSoundUriFlow.first()
         }
 
         if (!notificationsEnabled) {
@@ -30,7 +35,8 @@ class HabitAlarmReceiver : BroadcastReceiver() {
         notificationHelper.showNotification(
             habitId = habitId,
             title = "¡Es hora de tu hábito!",
-            message = "Es momento de: $habitName"
+            message = "Es momento de: $habitName",
+            soundUriStr = soundUriStr
         )
         
         // TODO: In a more advanced implementation we would reschedule the alarm for the next day here,

@@ -9,5 +9,6 @@ class FirestoreManager {
         const val USERS_COLLECTION = "users"
         const val HABITS_COLLECTION = "habits"
         const val RECORDS_COLLECTION = "records"
+        const val ROUTINES_COLLECTION = "routines"
     }
 }

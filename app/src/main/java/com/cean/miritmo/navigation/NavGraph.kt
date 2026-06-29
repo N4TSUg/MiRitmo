@@ -76,6 +76,9 @@ fun AppNavGraph(
                     onAddHabit = {
                         navController.navigate(Screen.AddHabit.route)
                     },
+                    onAddRoutine = {
+                        navController.navigate(Screen.AddRoutine.route)
+                    },
                     onNavigateToHabit = { habitId ->
                         navController.navigate(Screen.ManageHabit.createRoute(habitId))
                     },
@@ -93,12 +96,21 @@ fun AppNavGraph(
                     }
                 )
             }
-            composable(Screen.AddHabit.route) {
+            composable(
+                route = Screen.AddHabit.route,
+                arguments = listOf(androidx.navigation.navArgument("routineId") {
+                    type = androidx.navigation.NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                })
+            ) { backStackEntry ->
+                val routineId = backStackEntry.arguments?.getString("routineId")
                 val currentUser by authViewModel.currentUser.collectAsState()
                 com.cean.miritmo.ui.habits.AddHabitScreen(
                     navController = navController,
                     viewModel = habitsViewModel,
-                    photoUrl = currentUser?.photoUrl
+                    photoUrl = currentUser?.photoUrl,
+                    routineId = routineId
                 )
             }
             composable(Screen.Habits.route) {
@@ -137,10 +149,34 @@ fun AppNavGraph(
                     authViewModel = authViewModel
                 )
             }
-            composable("history") {
+            composable(
+                route = "history?type={type}",
+                arguments = listOf(androidx.navigation.navArgument("type") {
+                    type = androidx.navigation.NavType.StringType
+                    defaultValue = "habits"
+                })
+            ) { backStackEntry ->
+                val type = backStackEntry.arguments?.getString("type") ?: "habits"
                 com.cean.miritmo.ui.habits.HistoryScreen(
                     navController = navController,
-                    viewModel = habitsViewModel
+                    viewModel = habitsViewModel,
+                    initialType = type
+                )
+            }
+            composable(Screen.RoutineDetail.route) { backStackEntry ->
+                val routineId = backStackEntry.arguments?.getString("routineId") ?: ""
+                com.cean.miritmo.ui.routines.RoutineDetailScreen(
+                    navController = navController,
+                    viewModel = habitsViewModel,
+                    routineId = routineId
+                )
+            }
+            composable("manage_routine/{routineId}") { backStackEntry ->
+                val routineId = backStackEntry.arguments?.getString("routineId") ?: ""
+                com.cean.miritmo.ui.routines.ManageRoutineScreen(
+                    navController = navController,
+                    viewModel = habitsViewModel,
+                    routineId = routineId
                 )
             }
             composable(Screen.Search.route) {
@@ -156,6 +192,20 @@ fun AppNavGraph(
                     searchViewModel = searchViewModel,
                     habitsViewModel = habitsViewModel,
                     userId = userId
+                )
+            }
+            composable(Screen.AddRoutine.route) {
+                com.cean.miritmo.ui.routines.AddRoutineScreen(
+                    navController = navController,
+                    viewModel = habitsViewModel
+                )
+            }
+            composable(Screen.RoutineDetail.route) { backStackEntry ->
+                val routineId = backStackEntry.arguments?.getString("routineId") ?: ""
+                com.cean.miritmo.ui.routines.RoutineDetailScreen(
+                    navController = navController,
+                    viewModel = habitsViewModel,
+                    routineId = routineId
                 )
             }
         }

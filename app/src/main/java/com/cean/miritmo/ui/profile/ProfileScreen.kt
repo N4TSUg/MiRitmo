@@ -62,6 +62,7 @@ fun ProfileScreen(
 
     val notificationsEnabled by authViewModel.isNotificationsEnabled.collectAsState()
     val darkModeEnabled by authViewModel.isDarkMode.collectAsState()
+    val notificationSoundUri by authViewModel.notificationSoundUri.collectAsState()
 
     LaunchedEffect(Unit) {
         authViewModel.loadCurrentUser()
@@ -88,6 +89,15 @@ fun ProfileScreen(
                     // Ideally show error
                 }
             }
+        }
+    }
+
+    val ringtoneLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            val uri: android.net.Uri? = result.data?.getParcelableExtra(android.media.RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
+            authViewModel.setNotificationSoundUri(uri?.toString())
         }
     }
 
@@ -385,6 +395,41 @@ fun ProfileScreen(
                             modifier = Modifier.padding(top = 4.dp)
                         )
                     }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = "${currentUser?.followers?.size ?: 0}",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Seguidores",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Divider(
+                            modifier = Modifier.height(32.dp).width(1.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = "${currentUser?.following?.size ?: 0}",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Seguidos",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                 }
             }
 
@@ -456,6 +501,20 @@ fun ProfileScreen(
                             checked = darkModeEnabled,
                             onCheckedChange = { authViewModel.setDarkMode(it) }
                         )
+                        Divider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.surfaceVariant)
+                        SettingsRow(
+                            icon = Icons.Filled.Notifications,
+                            title = "Tono de notificación",
+                            subtitle = if (notificationSoundUri.isNullOrBlank()) "Personalizado" else "Sistema",
+                            onClick = {
+                                val intent = android.content.Intent(android.media.RingtoneManager.ACTION_RINGTONE_PICKER).apply {
+                                    putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_TYPE, android.media.RingtoneManager.TYPE_NOTIFICATION)
+                                    putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
+                                    putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, true)
+                                }
+                                ringtoneLauncher.launch(intent)
+                            }
+                        )
                     }
                 }
             }
@@ -494,6 +553,7 @@ fun ProfileScreen(
 fun SettingsRow(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     title: String,
+    subtitle: String? = null,
     onClick: () -> Unit
 ) {
     Row(
@@ -513,12 +573,20 @@ fun SettingsRow(
             Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
         }
         Spacer(modifier = Modifier.width(16.dp))
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.weight(1f)
-        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            if (subtitle != null) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
     }
 }
 

@@ -37,13 +37,18 @@ fun HomeScreen(
     viewModel: HabitsViewModel,
     photoUrl: String?,
     onAddHabit: () -> Unit,
+    onAddRoutine: () -> Unit,
     onNavigateToHabit: (String) -> Unit,
     onNavigateToTimer: (String) -> Unit,
     onNavigateToProfile: () -> Unit
 ) {
     val habits by viewModel.habits.collectAsState()
+    val routines by viewModel.routines.collectAsState()
     val timers by viewModel.timers.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    
+    var showCreateBottomSheet by remember { mutableStateOf(false) }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     
     var selectedDateMillis by remember { mutableStateOf(System.currentTimeMillis()) }
     var currentWeekOffset by remember { mutableStateOf(0) }
@@ -94,13 +99,13 @@ fun HomeScreen(
         containerColor = MaterialTheme.colorScheme.background,
         floatingActionButton = {
             FloatingActionButton(
-                onClick = onAddHabit,
+                onClick = { showCreateBottomSheet = true },
                 shape = CircleShape,
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = Color.White,
                 modifier = Modifier.size(64.dp)
             ) {
-                Icon(Icons.Filled.Add, "Crear Hábito", modifier = Modifier.size(32.dp))
+                Icon(Icons.Filled.Add, "Crear", modifier = Modifier.size(32.dp))
             }
         }
     ) { padding ->
@@ -112,23 +117,24 @@ fun HomeScreen(
         ) {
             item {
                 // Top Bar
-                Row(
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 24.dp, vertical = 16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                        .padding(horizontal = 24.dp, vertical = 16.dp)
                 ) {
-                    ProfileAvatar(
-                        photoUrl = photoUrl,
-                        size = 48.dp,
-                        onClick = onNavigateToProfile
-                    )
+                    Box(modifier = Modifier.align(Alignment.CenterStart)) {
+                        ProfileAvatar(
+                            photoUrl = photoUrl,
+                            size = 48.dp,
+                            onClick = onNavigateToProfile
+                        )
+                    }
 
                     Text(
                         text = "MiRitmo",
                         style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
-                        color = MaterialTheme.colorScheme.primary
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.align(Alignment.Center)
                     )
                 }
             }
@@ -301,29 +307,150 @@ fun HomeScreen(
                     }
                 }
             } else {
-                // Habit List
-                items(validHabitsForToday) { habit ->
-                    val targets = maxOf(1, habit.getEffectiveTargetTimes().size)
-                    val completions = habit.completionsByDate[selectedDateFormat] ?: 0
-                    val isCompleted = completions >= targets
-                    
-                    Box(modifier = Modifier.padding(horizontal = 24.dp).padding(bottom = 16.dp)) {
-                        HabitCard(
-                            habit = habit,
-                            isCompleted = isCompleted,
-                            currentCompletions = completions,
-                            totalTargets = targets,
-                            onToggleCompletion = {
-                                viewModel.toggleHabitCompletion(habit.id, isCompleted, selectedDateFormat)
-                            },
-                            onClick = { onNavigateToHabit(habit.id) },
-                            onPlayClick = {
-                                onNavigateToTimer(habit.id)
-                            },
-                            timerState = timers[habit.id]
+                // Agrupamos los hábitos en "Sueltos" y por Rutinas
+                val standaloneHabits = validHabitsForToday.filter { it.routineId == null }
+                val habitsInRoutines = validHabitsForToday.filter { it.routineId != null }
+                val groupedByRoutine = habitsInRoutines.groupBy { it.routineId!! }
+
+                // Mostrar hábitos de cada rutina
+                groupedByRoutine.forEach { (routineId, routineHabits) ->
+                    val routineName = routines.find { it.id == routineId }?.name ?: "Rutina Desconocida"
+                    item {
+                        Text(
+                            text = routineName,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(horizontal = 24.dp).padding(bottom = 8.dp)
                         )
                     }
+                    items(routineHabits) { habit ->
+                        val targets = maxOf(1, habit.getEffectiveTargetTimes().size)
+                        val completions = habit.completionsByDate[selectedDateFormat] ?: 0
+                        val isCompleted = completions >= targets
+                        
+                        Box(modifier = Modifier.padding(horizontal = 24.dp).padding(bottom = 16.dp)) {
+                            HabitCard(
+                                habit = habit,
+                                isCompleted = isCompleted,
+                                currentCompletions = completions,
+                                totalTargets = targets,
+                                onToggleCompletion = {
+                                    viewModel.toggleHabitCompletion(habit.id, isCompleted, selectedDateFormat)
+                                },
+                                onClick = { onNavigateToHabit(habit.id) },
+                                onPlayClick = {
+                                    onNavigateToTimer(habit.id)
+                                },
+                                timerState = timers[habit.id]
+                            )
+                        }
+                    }
                 }
+
+                // Mostrar hábitos sueltos si hay
+                if (standaloneHabits.isNotEmpty()) {
+                    if (groupedByRoutine.isNotEmpty()) {
+                        item {
+                            Text(
+                                text = "Hábitos",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(horizontal = 24.dp).padding(top = 8.dp, bottom = 8.dp)
+                            )
+                        }
+                    }
+                    items(standaloneHabits) { habit ->
+                        val targets = maxOf(1, habit.getEffectiveTargetTimes().size)
+                        val completions = habit.completionsByDate[selectedDateFormat] ?: 0
+                        val isCompleted = completions >= targets
+                        
+                        Box(modifier = Modifier.padding(horizontal = 24.dp).padding(bottom = 16.dp)) {
+                            HabitCard(
+                                habit = habit,
+                                isCompleted = isCompleted,
+                                currentCompletions = completions,
+                                totalTargets = targets,
+                                onToggleCompletion = {
+                                    viewModel.toggleHabitCompletion(habit.id, isCompleted, selectedDateFormat)
+                                },
+                                onClick = { onNavigateToHabit(habit.id) },
+                                onPlayClick = {
+                                    onNavigateToTimer(habit.id)
+                                },
+                                timerState = timers[habit.id]
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (showCreateBottomSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showCreateBottomSheet = false },
+            sheetState = sheetState,
+            containerColor = MaterialTheme.colorScheme.surface
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "¿Qué deseas crear?",
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.clickable {
+                            showCreateBottomSheet = false
+                            onAddHabit()
+                        }.padding(16.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(64.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Filled.Add, contentDescription = "Hábito", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("Hábito", fontWeight = FontWeight.Bold)
+                    }
+
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.clickable {
+                            showCreateBottomSheet = false
+                            onAddRoutine()
+                        }.padding(16.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(64.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.1f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Filled.Add, contentDescription = "Rutina", tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(32.dp))
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("Rutina", fontWeight = FontWeight.Bold)
+                    }
+                }
+                Spacer(modifier = Modifier.height(32.dp))
             }
         }
     }

@@ -38,6 +38,16 @@ fun UserProfileScreen(
 ) {
     val user by searchViewModel.userProfile.collectAsState()
     val habits by searchViewModel.userProfileHabits.collectAsState()
+    val isFollowing by searchViewModel.isFollowing.collectAsState()
+    val isProcessingFollow by searchViewModel.isProcessingFollow.collectAsState()
+    val followersList by searchViewModel.followersList.collectAsState()
+    val routines by searchViewModel.userProfileRoutines.collectAsState()
+
+    var selectedTabIndex by remember { mutableStateOf(0) }
+    val tabs = listOf("Hábitos", "Rutinas", "Seguidores")
+    
+    var selectedRoutineForDetails by remember { mutableStateOf<com.cean.miritmo.model.Routine?>(null) }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     LaunchedEffect(userId) {
         searchViewModel.loadUserProfile(userId)
@@ -86,34 +96,185 @@ fun UserProfileScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    Spacer(modifier = Modifier.height(32.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Counters
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(text = "${it.followers.size}", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                            Text(text = "Seguidores", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Spacer(modifier = Modifier.width(32.dp))
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(text = "${it.following.size}", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                            Text(text = "Siguiendo", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Follow Button
+                    Button(
+                        onClick = { searchViewModel.toggleFollow(it.id) },
+                        enabled = !isProcessingFollow,
+                        modifier = Modifier
+                            .fillMaxWidth(0.5f)
+                            .height(40.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (isFollowing) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.primary,
+                            contentColor = if (isFollowing) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onPrimary
+                        )
+                    ) {
+                        Text(text = if (isFollowing) "Siguiendo" else "Seguir", fontWeight = FontWeight.Bold)
+                    }
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
 
-                Text(
-                    text = "Hábitos Públicos",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                )
+                TabRow(
+                    selectedTabIndex = selectedTabIndex,
+                    containerColor = Color.Transparent,
+                    contentColor = MaterialTheme.colorScheme.primary
+                ) {
+                    tabs.forEachIndexed { index, title ->
+                        Tab(
+                            selected = selectedTabIndex == index,
+                            onClick = { selectedTabIndex = index },
+                            text = { Text(title, fontWeight = FontWeight.Bold) }
+                        )
+                    }
+                }
 
-                if (habits.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize().weight(1f), contentAlignment = Alignment.Center) {
-                        Text("Este usuario no tiene hábitos públicos.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (selectedTabIndex == 0) {
+                    val looseHabits = habits.filter { it.routineId == null }
+                    if (looseHabits.isEmpty()) {
+                        Box(modifier = Modifier.fillMaxSize().weight(1f), contentAlignment = Alignment.Center) {
+                            Text("Este usuario no tiene hábitos públicos sueltos.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxWidth().weight(1f),
+                            contentPadding = PaddingValues(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(looseHabits) { habit ->
+                                val context = androidx.compose.ui.platform.LocalContext.current
+                                PublicHabitCard(
+                                    habit = habit,
+                                    onCopy = {
+                                        habitsViewModel.copyHabitToMyProfile(habit) {
+                                            android.widget.Toast.makeText(context, "Hábito copiado con éxito", android.widget.Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                )
+                            }
+                        }
+                    }
+                } else if (selectedTabIndex == 1) {
+                    if (routines.isEmpty()) {
+                        Box(modifier = Modifier.fillMaxSize().weight(1f), contentAlignment = Alignment.Center) {
+                            Text("Este usuario no tiene rutinas públicas.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxWidth().weight(1f),
+                            contentPadding = PaddingValues(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(routines) { routine ->
+                                val context = androidx.compose.ui.platform.LocalContext.current
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            selectedRoutineForDetails = routine
+                                        },
+                                    shape = RoundedCornerShape(20.dp),
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(routine.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                                            if (routine.description.isNotBlank()) {
+                                                Spacer(modifier = Modifier.height(4.dp))
+                                                Text(routine.description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            }
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            val validHabitsCount = routine.habitIds.count { id -> habits.any { it.id == id && !it.isDeleted } }
+                                            Text("$validHabitsCount hábitos", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                                        }
+                                        IconButton(onClick = {
+                                            val routineHabits = habits.filter { it.id in routine.habitIds }
+                                            habitsViewModel.copyRoutineToMyProfile(routine, routineHabits) {
+                                                android.widget.Toast.makeText(context, "Rutina copiada con éxito", android.widget.Toast.LENGTH_SHORT).show()
+                                            }
+                                        }) {
+                                            Icon(
+                                                imageVector = Icons.Filled.ContentCopy,
+                                                contentDescription = "Copiar Rutina",
+                                                tint = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxWidth().weight(1f),
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        items(habits) { habit ->
-                            PublicHabitCard(
-                                habit = habit,
-                                onCopy = {
-                                    habitsViewModel.habitToCopy = habit
-                                    navController.navigate(Screen.AddHabit.route)
+                    if (followersList.isEmpty()) {
+                        Box(modifier = Modifier.fillMaxSize().weight(1f), contentAlignment = Alignment.Center) {
+                            Text("Este usuario aún no tiene seguidores.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxWidth().weight(1f),
+                            contentPadding = PaddingValues(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(followersList) { follower ->
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            navController.navigate(Screen.UserProfile.createRoute(follower.id))
+                                        },
+                                    shape = RoundedCornerShape(20.dp),
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(16.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        ProfileAvatar(photoUrl = follower.photoUrl, size = 48.dp)
+                                        Spacer(modifier = Modifier.width(16.dp))
+                                        Column {
+                                            Text(
+                                                text = follower.name,
+                                                style = MaterialTheme.typography.titleMedium,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                            if (!follower.apodo.isNullOrBlank()) {
+                                                Text(
+                                                    text = "@${follower.apodo}",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                        }
+                                    }
                                 }
-                            )
+                            }
                         }
                     }
                 }
@@ -121,6 +282,55 @@ fun UserProfileScreen(
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }
+            }
+        }
+    }
+
+    if (selectedRoutineForDetails != null) {
+        val routineHabits = habits.filter { it.routineId == selectedRoutineForDetails!!.id }
+        ModalBottomSheet(
+            onDismissRequest = { selectedRoutineForDetails = null },
+            sheetState = sheetState,
+            containerColor = MaterialTheme.colorScheme.surface
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                Text(
+                    text = "Hábitos de ${selectedRoutineForDetails!!.name}",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+                
+                if (routineHabits.isEmpty()) {
+                    Text(
+                        text = "Esta rutina no tiene hábitos públicos.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 16.dp)
+                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(routineHabits) { habit ->
+                            val context = androidx.compose.ui.platform.LocalContext.current
+                            PublicHabitCard(
+                                habit = habit,
+                                onCopy = {
+                                    habitsViewModel.copyHabitToMyProfile(habit) {
+                                        android.widget.Toast.makeText(context, "Hábito copiado con éxito", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(24.dp))
             }
         }
     }

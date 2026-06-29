@@ -19,6 +19,7 @@ class AuthRepository(
 
     val isDarkModeFlow = preferencesManager.isDarkModeFlow
     val isNotificationsEnabledFlow = preferencesManager.isNotificationsEnabledFlow
+    val notificationSoundUriFlow = preferencesManager.notificationSoundUriFlow
 
     suspend fun setDarkMode(isDark: Boolean) {
         preferencesManager.setDarkMode(isDark)
@@ -26,6 +27,10 @@ class AuthRepository(
 
     suspend fun setNotificationsEnabled(isEnabled: Boolean) {
         preferencesManager.setNotificationsEnabled(isEnabled)
+    }
+
+    suspend fun setNotificationSoundUri(uri: String?) {
+        preferencesManager.setNotificationSoundUri(uri)
     }
 
     suspend fun login(email: String, password: String): Result<User> {
@@ -149,6 +154,87 @@ class AuthRepository(
                     (it.apodo != null && it.apodo.lowercase().contains(queryLower)) 
                 }
                 
+            Result.success(users)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun followUser(targetUserId: String): Result<Unit> {
+        return try {
+            val currentUserId = getCurrentUserId() ?: throw Exception("No user logged in")
+            
+            db.runTransaction { transaction ->
+                val currentUserRef = db.collection(FirestoreManager.USERS_COLLECTION).document(currentUserId)
+                val targetUserRef = db.collection(FirestoreManager.USERS_COLLECTION).document(targetUserId)
+
+                val currentUserSnapshot = transaction.get(currentUserRef)
+                val targetUserSnapshot = transaction.get(targetUserRef)
+
+                val currentUser = currentUserSnapshot.toObject(User::class.java)
+                val targetUser = targetUserSnapshot.toObject(User::class.java)
+
+                if (currentUser != null && targetUser != null) {
+                    val newFollowing = (currentUser.following + targetUserId).distinct()
+                    val newFollowers = (targetUser.followers + currentUserId).distinct()
+
+                    transaction.update(currentUserRef, "following", newFollowing)
+                    transaction.update(targetUserRef, "followers", newFollowers)
+                }
+            }.await()
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun unfollowUser(targetUserId: String): Result<Unit> {
+        return try {
+            val currentUserId = getCurrentUserId() ?: throw Exception("No user logged in")
+            
+            db.runTransaction { transaction ->
+                val currentUserRef = db.collection(FirestoreManager.USERS_COLLECTION).document(currentUserId)
+                val targetUserRef = db.collection(FirestoreManager.USERS_COLLECTION).document(targetUserId)
+
+                val currentUserSnapshot = transaction.get(currentUserRef)
+                val targetUserSnapshot = transaction.get(targetUserRef)
+
+                val currentUser = currentUserSnapshot.toObject(User::class.java)
+                val targetUser = targetUserSnapshot.toObject(User::class.java)
+
+                if (currentUser != null && targetUser != null) {
+                    val newFollowing = currentUser.following.filter { it != targetUserId }
+                    val newFollowers = targetUser.followers.filter { it != currentUserId }
+
+                    transaction.update(currentUserRef, "following", newFollowing)
+                    transaction.update(targetUserRef, "followers", newFollowers)
+                }
+            }.await()
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getUsersByIds(userIds: List<String>): Result<List<User>> {
+        return try {
+            if (userIds.isEmpty()) return Result.success(emptyList())
+            
+            // Firestore 'in' query supports up to 10 items. For a robust app, we'd chunk this.
+            // For this prototype, we'll chunk it just in case.
+            val users = mutableListOf<User>()
+            val chunks = userIds.chunked(10)
+            
+            for (chunk in chunks) {
+                val snapshot = db.collection(FirestoreManager.USERS_COLLECTION)
+                    .whereIn("id", chunk)
+                    .get()
+                    .await()
+                users.addAll(snapshot.documents.mapNotNull { it.toObject(User::class.java) })
+            }
+            
             Result.success(users)
         } catch (e: Exception) {
             Result.failure(e)

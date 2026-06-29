@@ -30,6 +30,9 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
         .map { it ?: true }
         .stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5000), true)
 
+    val notificationSoundUri: StateFlow<String?> = repository.notificationSoundUriFlow
+        .stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5000), null)
+
     fun setDarkMode(isDark: Boolean) {
         viewModelScope.launch {
             repository.setDarkMode(isDark)
@@ -39,6 +42,12 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
     fun setNotificationsEnabled(isEnabled: Boolean) {
         viewModelScope.launch {
             repository.setNotificationsEnabled(isEnabled)
+        }
+    }
+
+    fun setNotificationSoundUri(uri: String?) {
+        viewModelScope.launch {
+            repository.setNotificationSoundUri(uri)
         }
     }
 

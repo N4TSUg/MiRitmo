@@ -3,6 +3,7 @@ package com.cean.miritmo.repository
 import com.cean.miritmo.firebase.FirestoreManager
 import com.cean.miritmo.model.Habit
 import com.cean.miritmo.model.HabitRecord
+import com.cean.miritmo.model.Routine
 import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -12,12 +13,12 @@ class HabitRepository(private val firestoreManager: FirestoreManager) {
 
     private val db = firestoreManager.db
 
-    suspend fun createHabit(habit: Habit): Result<Unit> {
+    suspend fun createHabit(habit: Habit): Result<String> {
         return try {
             val docRef = db.collection(FirestoreManager.HABITS_COLLECTION).document()
             val newHabit = habit.copy(id = docRef.id)
             docRef.set(newHabit).await()
-            Result.success(Unit)
+            Result.success(docRef.id)
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -137,5 +138,94 @@ class HabitRepository(private val firestoreManager: FirestoreManager) {
     fun getCurrentDateString(): String {
         val formatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
         return formatter.format(Date())
+    }
+
+    suspend fun createRoutine(routine: Routine): Result<String> {
+        return try {
+            val docRef = db.collection(FirestoreManager.ROUTINES_COLLECTION).document()
+            val newRoutine = routine.copy(id = docRef.id)
+            docRef.set(newRoutine).await()
+            Result.success(newRoutine.id)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun updateRoutine(routine: Routine): Result<Unit> {
+        return try {
+            db.collection(FirestoreManager.ROUTINES_COLLECTION).document(routine.id).set(routine).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun deleteRoutine(routineId: String): Result<Unit> {
+        return try {
+            db.collection(FirestoreManager.ROUTINES_COLLECTION).document(routineId).update("isDeleted", true).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun permanentlyDeleteRoutine(routineId: String): Result<Unit> {
+        return try {
+            db.collection(FirestoreManager.ROUTINES_COLLECTION).document(routineId).delete().await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getRoutinesForUser(userId: String): Result<List<Routine>> {
+        return try {
+            val snapshot = db.collection(FirestoreManager.ROUTINES_COLLECTION)
+                .whereEqualTo("userId", userId)
+                .get()
+                .await()
+            val routines = snapshot.documents.mapNotNull { it.toObject(Routine::class.java) }
+            Result.success(routines)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun addHabitsToRoutine(routineId: String, habitIds: List<String>): Result<Unit> {
+        return try {
+            // Firestore transactions support limited operations. We can do it in a batch for efficiency
+            val batch = db.batch()
+            
+            // 1. Update the routine's habitIds
+            val routineRef = db.collection(FirestoreManager.ROUTINES_COLLECTION).document(routineId)
+            
+            // Note: In a real app we might want to get the old habitIds and append. For now we assume we fetch it before calling this.
+            // But we don't have atomic arrayUnion unless we use FieldValue. Let's keep it simple: the caller sends the updated full list or we just update the habits.
+            // Wait, the easiest way is to let `updateRoutine` handle the `Routine` object updates, and here we just update the habits to point to the routine.
+            
+            habitIds.forEach { hId ->
+                val habitRef = db.collection(FirestoreManager.HABITS_COLLECTION).document(hId)
+                batch.update(habitRef, "routineId", routineId)
+            }
+            batch.commit().await()
+            
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun removeHabitsFromRoutine(habitIds: List<String>): Result<Unit> {
+        return try {
+            val batch = db.batch()
+            habitIds.forEach { hId ->
+                val habitRef = db.collection(FirestoreManager.HABITS_COLLECTION).document(hId)
+                batch.update(habitRef, "routineId", null)
+            }
+            batch.commit().await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 }
